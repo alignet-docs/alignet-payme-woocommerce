@@ -1,0 +1,534 @@
+/* Payme Gateway Styles */
+
+/* New improved payment methods container */
+.payme-methods-container {
+    margin: 20px 0;
+    padding: 0;
+    background: transparent;
+}
+
+.payme-methods-header {
+    text-align: center;
+    margin-bottom: 20px;
+    padding: 0 10px;
+}
+
+.payme-methods-header h4 {
+    margin: 0 0 8px 0;
+    font-size: 18px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.3;
+}
+
+.payme-methods-header p {
+    margin: 0;
+    font-size: 14px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+/* Change from grid to list layout */
+.payme-methods-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.payme-method-item {
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+    padding: 0;
+}
+
+.payme-method-card {
+    position: relative;
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    margin-bottom: 8px;
+}
+
+.payme-method-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-1px);
+}
+
+.payme-method-card.selected {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
+    transform: translateY(-1px);
+    margin-bottom: 16px;
+}
+
+.payme-method-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    margin: 0;
+    padding: 0;
+}
+
+.payme-method-label {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    cursor: pointer;
+    width: 100%;
+    box-sizing: border-box;
+    margin: 0;
+    position: relative;
+}
+
+.payme-method-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    font-size: 20px;
+    margin-right: 16px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+}
+
+.payme-method-content {
+    flex: 1;
+    min-width: 0;
+}
+
+.payme-method-title {
+    margin: 0 0 4px 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #1f2937;
+    line-height: 1.3;
+}
+
+.payme-method-description {
+    margin: 0;
+    font-size: 13px;
+    color: #6b7280;
+    line-height: 1.4;
+}
+
+.payme-method-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    margin-left: 12px;
+}
+
+.payme-method-check svg {
+    width: 16px;
+    height: 16px;
+    color: transparent;
+    transition: all 0.3s ease;
+}
+
+.payme-method-card.selected .payme-method-check {
+    background: #3b82f6;
+}
+
+.payme-method-card.selected .payme-method-check svg {
+    color: white;
+}
+
+.payme-method-card.selected .payme-method-title {
+    color: #1e40af;
+}
+
+.payme-method-card.selected .payme-method-description {
+    color: #3730a3;
+}
+
+/* Payment form appears below selected method */
+.payme-embedded-form {
+    margin: 0 0 16px 0;
+    padding: 20px;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #f9fafb;
+    min-height: 0;
+    transition: all 0.4s ease;
+}
+
+.payme-embedded-form.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Legacy separate methods styling (fallback) */
+.payme-separate-methods {
+    margin: 15px 0;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.payme-separate-methods p {
+    margin: 0 0 15px 0;
+    font-weight: 600;
+    color: #333;
+}
+
+.payme-method-option {
+    margin: 10px 0;
+}
+
+.payme-method-option input[type="radio"] {
+    display: none;
+}
+
+.payme-method-option label {
+    display: flex;
+    align-items: center;
+    padding: 12px 15px;
+    background: white;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.payme-method-option label:hover {
+    border-color: #007cba;
+    background: #f0f8ff;
+}
+
+.payme-method-option input[type="radio"]:checked + label {
+    border-color: #007cba;
+    background: #e7f3ff;
+    font-weight: 600;
+}
+
+.payme-method-icon {
+    margin-right: 10px;
+    font-size: 20px;
+}
+
+.payme-method-name {
+    flex: 1;
+    color: #333;
+}
+
+/* Payment form container */
+.payme-embedded-form {
+    margin: 15px 0 0 0;
+    padding: 0;
+    border: none;
+    background: transparent;
+    min-height: 0;
+    border-radius: 8px;
+    overflow: hidden;
+}
+
+/* Only apply min-height when Flex is loading or visible */
+.payme-embedded-form.loading,
+.payme-embedded-form.visible,
+.payme-embedded-form.payme-loading {
+    min-height: 350px;
+}
+
+/* Remove any default WooCommerce payment method styling */
+.payment_method_payme {
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+.payment_method_payme .payment_box {
+    background: transparent !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+}
+
+/* Description styling */
+.payme-description {
+    margin: 0 0 15px 0;
+    padding: 0;
+    color: #666;
+    font-size: 14px;
+}
+
+.payme-description p {
+    margin: 0;
+    padding: 0;
+}
+
+/* Popup info styling */
+.payme-popup-info {
+    padding: 15px;
+    background: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    margin: 15px 0;
+}
+
+.payme-popup-info p {
+    margin: 0;
+    color: #495057;
+    font-size: 14px;
+    text-align: center;
+}
+
+/* Loading styles */
+.payme-loading {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+    font-size: 16px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    margin: 15px 0;
+}
+
+.payme-loading:before {
+    content: '';
+    display: inline-block;
+    width: 20px;
+    height: 20px;
+    border: 2px solid #f3f3f3;
+    border-top: 2px solid #007cba;
+    border-radius: 50%;
+    animation: payme-spin 1s linear infinite;
+    margin-right: 10px;
+    vertical-align: middle;
+}
+
+@keyframes payme-spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Error styles */
+.payme-error {
+    padding: 15px;
+    background: #fee;
+    border: 1px solid #fcc;
+    border-radius: 5px;
+    color: #c33;
+    margin: 15px 0;
+    text-align: center;
+}
+
+/* Hide the placeholder text that appears in blocks */
+#payme-payment-form-blocks {
+    display: none !important;
+}
+
+/* Ensure Payme Flex form takes full width */
+#payme-flex-form,
+#payme-flex-container {
+    width: 100% !important;
+    max-width: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    background: transparent !important;
+}
+
+/* Payme Flex iframe styling */
+#payme-flex-form iframe,
+#payme-flex-container iframe {
+    width: 100% !important;
+    border: none !important;
+    border-radius: 8px !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+}
+
+/* Add bottom margin to the active method's Flex form so it doesn't stick to the next method card */
+.payme-method-card.selected + .payme-embedded-form,
+.payme-embedded-form.visible,
+.payme-embedded-form[style*="display: block"],
+.payme-embedded-form[style*="display:block"] {
+    margin-bottom: 24px;
+}
+
+/* Flex form containers inside accordion body */
+[id^="payme-flex-"] iframe,
+[id^="payme-payment-form-"] iframe {
+    width: 100% !important;
+    border: none !important;
+    border-radius: 8px !important;
+    margin-bottom: 20px !important;
+}
+
+/* Payment method icon */
+.payment_method_payme img {
+    max-height: 24px;
+    width: auto;
+    vertical-align: middle;
+    margin-left: 5px;
+}
+
+/* Responsive styles */
+@media (max-width: 768px) {
+    .payme-embedded-form {
+        margin: 10px 0;
+    }
+    
+    .payme-loading {
+        padding: 30px 15px;
+    }
+    
+    .payme-popup-info {
+        margin: 10px 0;
+        padding: 12px;
+    }
+    
+    /* Mobile optimizations for new payment methods */
+    .payme-methods-grid {
+        grid-template-columns: 1fr;
+        gap: 12px;
+    }
+    
+    .payme-methods-header {
+        margin-bottom: 16px;
+    }
+    
+    .payme-methods-header h4 {
+        font-size: 16px;
+    }
+    
+    .payme-method-label {
+        padding: 16px;
+    }
+    
+    .payme-method-icon {
+        width: 40px;
+        height: 40px;
+        font-size: 20px;
+        margin-right: 12px;
+    }
+    
+    .payme-method-title {
+        font-size: 15px;
+    }
+    
+    .payme-method-description {
+        font-size: 12px;
+    }
+}
+
+@media (max-width: 480px) {
+    .payme-methods-container {
+        margin: 15px 0;
+    }
+    
+    .payme-methods-header {
+        padding: 0 5px;
+    }
+    
+    .payme-method-label {
+        padding: 14px;
+    }
+    
+    .payme-method-icon {
+        width: 36px;
+        height: 36px;
+        font-size: 18px;
+        margin-right: 10px;
+    }
+    
+    .payme-method-check {
+        width: 20px;
+        height: 20px;
+        margin-left: 8px;
+    }
+    
+    .payme-method-check svg {
+        width: 14px;
+        height: 14px;
+    }
+}
+
+/* Admin settings styles */
+.payme-admin-notice {
+    padding: 12px;
+    margin: 15px 0;
+    border-left: 4px solid #007cba;
+    background: #fff;
+    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+}
+
+.payme-admin-notice.error {
+    border-left-color: #dc3232;
+}
+
+.payme-admin-notice.warning {
+    border-left-color: #ffb900;
+}
+
+.payme-admin-notice.success {
+    border-left-color: #46b450;
+}
+
+/* Processing overlay */
+.processing .payme-embedded-form:after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.8);
+    z-index: 999;
+}
+
+/* WooCommerce error/success messages */
+.woocommerce-error {
+    background: #ffe6e6;
+    border: 1px solid #ff9999;
+    color: #d63638;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+.woocommerce-message {
+    background: #e6ffe6;
+    border: 1px solid #99ff99;
+    color: #2e7d32;
+    padding: 12px;
+    margin-bottom: 15px;
+    border-radius: 4px;
+}
+
+/* Billing validation warning */
+.payme-billing-warning {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    border: 1px solid #f59e0b;
+    border-left: 4px solid #f59e0b;
+    border-radius: 8px;
+    margin: 12px 0;
+    box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15);
+}
+
+/* Force light theme — Payme checkout always renders on white regardless of OS dark mode */
+.payment_method_payme,
+.payment_method_payme *,
+.payme-billing-warning,
+.payme-billing-warning * {
+    color-scheme: light;
+}

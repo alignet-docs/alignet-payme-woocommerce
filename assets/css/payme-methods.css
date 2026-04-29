@@ -1,0 +1,269 @@
+/* Payme Payment Methods Enhanced Styles */
+
+/* Animation keyframes */
+@keyframes payme-card-select {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.02); }
+    100% { transform: scale(1); }
+}
+
+@keyframes payme-check-appear {
+    0% { 
+        opacity: 0; 
+        transform: scale(0.5); 
+    }
+    100% { 
+        opacity: 1; 
+        transform: scale(1); 
+    }
+}
+
+/* Enhanced method cards with better visual feedback */
+.payme-method-card {
+    position: relative;
+    background: #ffffff;
+    border: 2px solid #e5e7eb;
+    border-radius: 12px;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.payme-method-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    transform: scaleX(0);
+    transition: transform 0.3s ease;
+    transform-origin: left;
+}
+
+.payme-method-card:hover::before,
+.payme-method-card.selected::before {
+    transform: scaleX(1);
+}
+
+.payme-method-card:hover {
+    border-color: #3b82f6;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    transform: translateY(-2px);
+}
+
+.payme-method-card.selected {
+    border-color: #3b82f6;
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
+    transform: translateY(-2px);
+    animation: payme-card-select 0.3s ease;
+}
+
+/* Method icon with dynamic colors */
+.payme-method-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
+    font-size: 24px;
+    margin-right: 16px;
+    flex-shrink: 0;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.payme-method-icon::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    background: rgba(255, 255, 255, 0.3);
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    transition: all 0.3s ease;
+}
+
+.payme-method-card:hover .payme-method-icon::after,
+.payme-method-card.selected .payme-method-icon::after {
+    width: 100%;
+    height: 100%;
+}
+
+/* Enhanced check animation */
+.payme-method-check {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #f3f4f6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+    flex-shrink: 0;
+    margin-left: 12px;
+    position: relative;
+}
+
+.payme-method-check svg {
+    width: 16px;
+    height: 16px;
+    color: transparent;
+    transition: all 0.3s ease;
+}
+
+.payme-method-card.selected .payme-method-check {
+    background: #3b82f6;
+    animation: payme-check-appear 0.3s ease;
+}
+
+.payme-method-card.selected .payme-method-check svg {
+    color: white;
+}
+
+/* Pulse effect for selected method */
+.payme-method-card.selected .payme-method-check::after {
+    content: '';
+    position: absolute;
+    top: -2px;
+    left: -2px;
+    right: -2px;
+    bottom: -2px;
+    border-radius: 50%;
+    border: 2px solid #3b82f6;
+    opacity: 0;
+    animation: payme-pulse 2s infinite;
+}
+
+@keyframes payme-pulse {
+    0% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.4);
+    }
+}
+
+/* Loading state for payment form */
+.payme-embedded-form.loading {
+    position: relative;
+    min-height: 200px;
+}
+
+.payme-embedded-form.loading::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(255, 255, 255, 0.9);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+}
+
+.payme-embedded-form.loading::before {
+    content: 'Cargando método de pago...';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 11;
+    color: #6b7280;
+    font-size: 14px;
+}
+
+/* Smooth transitions for form appearance */
+.payme-embedded-form {
+    opacity: 0;
+    transform: translateY(10px);
+    transition: all 0.4s ease;
+}
+
+.payme-embedded-form.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+/* Focus states for accessibility */
+.payme-method-card input[type="radio"]:focus + .payme-method-label {
+    outline: 2px solid #3b82f6;
+    outline-offset: 2px;
+}
+
+/* High contrast mode support */
+@media (prefers-contrast: high) {
+    .payme-method-card {
+        border-width: 3px;
+    }
+    
+    .payme-method-card.selected {
+        background: #ffffff;
+        border-color: #000000;
+    }
+    
+    .payme-method-check {
+        border: 2px solid #000000;
+    }
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+    .payme-method-card,
+    .payme-method-icon,
+    .payme-method-check,
+    .payme-embedded-form {
+        transition: none;
+        animation: none;
+    }
+    
+    .payme-method-card:hover,
+    .payme-method-card.selected {
+        transform: none;
+    }
+}
+
+/* Force light theme — payment methods always on white regardless of OS dark mode */
+.payme-methods-container,
+.payme-methods-container *,
+.payme-method-card,
+.payme-method-card * {
+    color-scheme: light;
+}
+
+.payme-method-card {
+    background: #ffffff !important;
+    border-color: #e5e7eb !important;
+}
+
+.payme-method-card.selected {
+    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
+    border-color: #3b82f6 !important;
+}
+
+.payme-method-title {
+    color: #1e293b !important;
+}
+
+.payme-method-description {
+    color: #6b7280 !important;
+}
+
+.payme-methods-header h4 {
+    color: #1e293b !important;
+}
+
+.payme-methods-header p {
+    color: #6b7280 !important;
+}

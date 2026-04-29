@@ -1,0 +1,330 @@
+/* Payme Gateway Admin Styles */
+
+/* Toggle Switch for Enable/Disable */
+.payme-toggle-switch input[type="checkbox"] {
+    position: relative;
+    width: 60px;
+    height: 30px;
+    -webkit-appearance: none;
+    background: #ccc;
+    border-radius: 15px;
+    outline: none;
+    transition: 0.3s;
+    cursor: pointer;
+}
+
+.payme-toggle-switch input[type="checkbox"]:checked {
+    background: #007cba;
+}
+
+.payme-toggle-switch input[type="checkbox"]:before {
+    content: '';
+    position: absolute;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    top: 2px;
+    left: 2px;
+    background: white;
+    transition: 0.3s;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+}
+
+.payme-toggle-switch input[type="checkbox"]:checked:before {
+    transform: translateX(30px);
+}
+
+/* Environment Radio Buttons */
+.payme-environment-radio {
+    display: flex;
+    gap: 20px;
+    margin-top: 5px;
+}
+
+.payme-environment-radio label {
+    display: flex;
+    align-items: center;
+    padding: 10px 15px;
+    border: 2px solid #ddd;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: #fff;
+}
+
+.payme-environment-radio label:hover {
+    border-color: #007cba;
+    background: #f8f9fa;
+}
+
+.payme-environment-radio input[type="radio"] {
+    margin-right: 8px;
+}
+
+.payme-environment-radio input[type="radio"]:checked + label,
+.payme-environment-radio label:has(input[type="radio"]:checked) {
+    border-color: #007cba;
+    background: #e7f3ff;
+    font-weight: 600;
+}
+
+/* Production warning */
+.payme-environment-radio label:contains("Producción") {
+    border-color: #dc3232;
+}
+
+.payme-environment-radio input[type="radio"]:checked + label:contains("Producción"),
+.payme-environment-radio label:has(input[type="radio"]:checked):contains("Producción") {
+    border-color: #dc3232;
+    background: #ffeaea;
+    color: #dc3232;
+}
+
+/* Password field with show/hide button */
+.payme-password-field {
+    position: relative;
+}
+
+.payme-password-field input[type="password"],
+.payme-password-field input[type="text"] {
+    padding-right: 45px !important;
+}
+
+.payme-password-toggle {
+    position: absolute;
+    right: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 16px;
+    color: #666;
+    padding: 5px;
+    line-height: 1;
+}
+
+.payme-password-toggle:hover {
+    color: #007cba;
+}
+
+/* Payment Methods Checkboxes */
+.payme-payment-methods {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 10px;
+    margin-top: 10px;
+    padding: 15px;
+    background: #f9f9f9;
+    border-radius: 8px;
+    border: 1px solid #ddd;
+}
+
+.payme-payment-methods label {
+    display: flex;
+    align-items: center;
+    padding: 8px 12px;
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: normal;
+}
+
+.payme-payment-methods label:hover {
+    border-color: #007cba;
+    background: #f0f8ff;
+}
+
+.payme-payment-methods input[type="checkbox"] {
+    margin-right: 8px;
+    margin-left: 0;
+}
+
+.payme-payment-methods input[type="checkbox"]:checked + span,
+.payme-payment-methods label:has(input[type="checkbox"]:checked) {
+    background: #e7f3ff;
+    border-color: #007cba;
+    font-weight: 600;
+    color: #007cba;
+}
+
+/* Advanced Section */
+.form-table tr[data-field="advanced_section"] th {
+    background: #f1f1f1;
+    border-top: 2px solid #007cba;
+    padding: 15px 10px;
+    font-size: 16px;
+    font-weight: 600;
+    color: #333;
+}
+
+.form-table tr[data-field="advanced_section"] td {
+    background: #f1f1f1;
+    border-top: 2px solid #007cba;
+    padding: 10px;
+    font-style: italic;
+    color: #666;
+}
+
+/* Configuration Status */
+.payme-status-check {
+    background: #f9f9f9;
+    padding: 20px;
+    margin: 20px 0;
+    border-left: 4px solid #007cba;
+    border-radius: 0 8px 8px 0;
+}
+
+.payme-status-check h3 {
+    margin-top: 0;
+    color: #333;
+    font-size: 18px;
+}
+
+.payme-status-check ul {
+    list-style: none;
+    margin: 15px 0;
+    padding: 0;
+}
+
+.payme-status-check li {
+    margin: 8px 0;
+    padding: 5px 0;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+}
+
+.payme-status-check li:before {
+    margin-right: 8px;
+}
+
+/* Test Connection Button */
+#payme-test-connection {
+    background: #007cba;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background 0.3s ease;
+}
+
+#payme-test-connection:hover {
+    background: #005a87;
+}
+
+#payme-test-connection:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+#payme-test-result {
+    font-weight: 600;
+    font-size: 14px;
+}
+
+/* Form Field Descriptions */
+.form-table .description {
+    font-size: 13px;
+    color: #666;
+    font-style: italic;
+    margin-top: 5px;
+}
+
+/* Select and Input Styling */
+.form-table select,
+.form-table input[type="text"],
+.form-table input[type="password"],
+.form-table textarea {
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    padding: 8px 12px;
+    font-size: 14px;
+    transition: border-color 0.3s ease;
+}
+
+.form-table select:focus,
+.form-table input[type="text"]:focus,
+.form-table input[type="password"]:focus,
+.form-table textarea:focus {
+    border-color: #007cba;
+    outline: none;
+    box-shadow: 0 0 0 1px #007cba;
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    .payme-environment-radio {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .payme-payment-methods {
+        grid-template-columns: 1fr;
+    }
+    
+    .payme-status-check {
+        margin: 10px 0;
+        padding: 15px;
+    }
+}
+
+/* Multiselect styling */
+select[multiple] {
+    min-height: 120px;
+    padding: 8px;
+}
+
+select[multiple] option {
+    padding: 4px 8px;
+    margin: 2px 0;
+}
+
+select[multiple] option:checked {
+    background: #007cba;
+    color: white;
+}
+
+/* Help text styling */
+.woocommerce-help-tip {
+    color: #666;
+    font-size: 16px;
+    cursor: help;
+}
+
+/* Section dividers */
+.form-table tr th {
+    position: relative;
+}
+
+.form-table tr[data-field="country"] th:before {
+    content: "Configuración Básica";
+    position: absolute;
+    top: -30px;
+    left: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #007cba;
+    background: white;
+    padding: 5px 0;
+    width: 100%;
+    border-bottom: 2px solid #007cba;
+}
+
+.form-table tr[data-field="client_id"] th:before {
+    content: "Credenciales API";
+    position: absolute;
+    top: -30px;
+    left: 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #007cba;
+    background: white;
+    padding: 5px 0;
+    width: 100%;
+    border-bottom: 2px solid #007cba;
+}
