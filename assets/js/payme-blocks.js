@@ -6,13 +6,13 @@ const { getSetting } = window.wc.wcSettings;
 
 // Get settings with fallback
 const settings = getSetting('payme_data', {
-    title: 'Payme Gateway',
+    title: 'Pay-me Gateway',
     description: 'Paga con tarjeta, Yape, QR y más métodos',
     supports: ['products'],
     icon: ''
 });
 
-const defaultLabel = __('Payme Gateway', 'payme-gateway');
+const defaultLabel = __('Pay-me Gateway', 'payme-gateway');
 const label = decodeEntities(settings.title) || defaultLabel;
 
 const methodIcons = {
@@ -42,6 +42,7 @@ const Content = () => {
     const { useEffect, useState, useCallback } = window.wp.element;
     const [isInitialized, setIsInitialized] = useState(false);
     const [isLoading, setIsLoading] = useState(false);
+    const [popupReady, setPopupReady] = useState(false);
     const [selectedMethod, setSelectedMethod] = useState(null);
     const [billingError, setBillingError] = useState(null);
 
@@ -73,14 +74,19 @@ const Content = () => {
 
     const onFlexReady = useCallback(() => {
         setIsLoading(false);
+        if (displayMode === 'popup') setPopupReady(true);
         const placeOrderBtn = document.querySelector('.wc-block-components-checkout-place-order-button');
         if (placeOrderBtn) placeOrderBtn.style.display = 'none';
         const terms = document.querySelector('.wc-block-checkout__terms');
         if (terms) terms.style.display = 'none';
-    }, []);
+    }, [displayMode]);
 
     useEffect(() => {
         window._paymeBlocksOnReady = onFlexReady;
+        window._paymeBlocksOnPopupClosed = function () {
+            setPopupReady(false);
+            setIsLoading(true);
+        };
 
         // Hide Place Order button and terms immediately when Payme is selected
         const placeOrderBtn = document.querySelector('.wc-block-components-checkout-place-order-button');
@@ -90,6 +96,7 @@ const Content = () => {
 
         return () => {
             delete window._paymeBlocksOnReady;
+            delete window._paymeBlocksOnPopupClosed;
             const placeOrderBtn = document.querySelector('.wc-block-components-checkout-place-order-button');
             if (placeOrderBtn) placeOrderBtn.style.display = '';
             const terms = document.querySelector('.wc-block-checkout__terms');
@@ -98,11 +105,31 @@ const Content = () => {
     }, [onFlexReady]);
 
     useEffect(() => {
+        if (displayMode !== 'popup') return;
+        const refreshPreload = (event) => {
+            const target = event.target;
+            const id = target && target.id ? target.id : '';
+            const name = target && target.name ? target.name : '';
+            if (id !== 'email' && !id.startsWith('billing-') && !name.startsWith('billing_')) return;
+            setPopupReady(false);
+            setIsLoading(true);
+            setIsInitialized(false);
+            if (typeof window.payme !== 'undefined') {
+                window.payme.invalidateFlexSession();
+                window.payme.queuePopupPreload(150);
+            }
+        };
+        document.body.addEventListener('change', refreshPreload, true);
+        return () => document.body.removeEventListener('change', refreshPreload, true);
+    }, [displayMode]);
+
+    useEffect(() => {
         if (paymentType === 'separado') return;
         if (isInitialized) return;
-        // In popup mode, don't auto-initialize — wait for the "Pagar" button click
-        if (displayMode === 'popup') return;
+        // Popup mode preloads only the server session. Flex itself is mounted
+        // later, exclusively from the user's click.
         setIsLoading(true);
+        if (displayMode === 'popup') setPopupReady(false);
         const initializePayme = () => {
             setTimeout(() => {
                 const error = validateBilling();
@@ -114,7 +141,7 @@ const Content = () => {
                 setBillingError(null);
                 const container = document.getElementById('payme-flex-container');
                 if (container && typeof window.payme !== 'undefined') {
-                    window.payme.isInitialized = false;
+                    window.payme.invalidateFlexSession();
                     window.payme.initializePaymeFlex();
                     setIsInitialized(true);
                 } else {
@@ -143,6 +170,7 @@ const Content = () => {
         }
         setBillingError(null);
         setIsLoading(true);
+        setPopupReady(false);
 
         const placeOrderBtn = document.querySelector('.wc-block-components-checkout-place-order-button');
         if (placeOrderBtn) placeOrderBtn.style.display = 'none';
@@ -151,7 +179,7 @@ const Content = () => {
             const container = document.getElementById('payme-flex-' + method);
             if (typeof window.payme !== 'undefined' && container) {
                 window.payme.selectedMethod = method;
-                window.payme.isInitialized = false;
+                window.payme.invalidateFlexSession();
 
                 if (displayMode === 'popup') {
                     // For popup mode: get payment data via AJAX, then show button
@@ -302,7 +330,27 @@ const Content = () => {
                         })
                     ]) : null
                 ]);
-            })
+            }),
+            displayMode === 'popup' && selectedMethod ? createElement('button', {
+                key: 'separate-popup-btn',
+                type: 'button',
+                className: 'payme-popup-pay-btn',
+                disabled: !popupReady,
+                style: {
+                    display: 'block', width: '100%', padding: '14px 24px', marginTop: '12px',
+                    background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
+                    color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px',
+                    fontWeight: '600', textAlign: 'center',
+                    opacity: popupReady ? 1 : 0.65,
+                    cursor: popupReady ? 'pointer' : 'not-allowed'
+                },
+                onClick: function () {
+                    if (popupReady && typeof window.payme !== 'undefined') {
+                        window.payme.openPaymentPopup();
+                        setPopupReady(false);
+                    }
+                }
+            }, popupReady ? '💳 Realizar el pedido' : 'Preparando pago...') : null
         ]);
     }
 
@@ -314,7 +362,7 @@ const Content = () => {
             decodeEntities(settings.description || 'Paga con tarjeta, Yape, QR y más métodos')),
 
         // Show "Pagar con Payme" button for modal+junto mode
-        displayMode === 'popup' && !isLoading ? createElement('button', {
+        displayMode === 'popup' ? createElement('button', {
             key: 'popup-btn',
             type: 'button',
             className: 'payme-popup-pay-btn',
@@ -322,10 +370,13 @@ const Content = () => {
                 display: 'block', width: '100%', padding: '14px 24px', marginTop: '12px',
                 background: 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)',
                 color: '#fff', border: 'none', borderRadius: '8px', fontSize: '16px',
-                fontWeight: '600', cursor: 'pointer', textAlign: 'center',
+                fontWeight: '600', textAlign: 'center',
                 boxShadow: '0 2px 8px rgba(59,130,246,0.3)',
-                transition: 'all 0.2s ease'
+                transition: 'all 0.2s ease',
+                opacity: popupReady ? 1 : 0.65,
+                cursor: popupReady ? 'pointer' : 'not-allowed'
             },
+            disabled: !popupReady,
             onClick: function() {
                 var error = validateBilling();
                 if (error) {
@@ -333,15 +384,12 @@ const Content = () => {
                     return;
                 }
                 setBillingError(null);
-                setIsLoading(true);
-                var container = document.getElementById('payme-flex-container');
-                if (container && typeof window.payme !== 'undefined') {
-                    window.payme.isInitialized = false;
-                    window.payme.initializePaymeFlex();
-                    setIsInitialized(true);
+                if (popupReady && typeof window.payme !== 'undefined') {
+                    window.payme.openPaymentPopup();
+                    setPopupReady(false);
                 }
             }
-        }, '💳 Pagar con Payme') : null,
+        }, popupReady ? '💳 Pagar con Pay-me' : 'Preparando pago...') : null,
 
         billingError ? createElement('div', {
             key: 'billing-error',

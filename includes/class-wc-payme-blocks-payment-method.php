@@ -24,8 +24,7 @@ class WC_Payme_Blocks_Payment_Method extends AbstractPaymentMethodType {
     
     public function get_payment_method_script_handles() {
         $script_path = PAYME_GATEWAY_PLUGIN_URL . 'assets/js/payme-blocks.js';
-        $script_asset_path = PAYME_GATEWAY_PLUGIN_DIR . 'assets/js/payme-blocks.js';
-        
+
         wp_register_script(
             'payme-blocks-integration',
             $script_path,
@@ -36,7 +35,7 @@ class WC_Payme_Blocks_Payment_Method extends AbstractPaymentMethodType {
                 'wp-html-entities',
                 'wp-i18n'
             ),
-            file_exists($script_asset_path) ? PAYME_GATEWAY_VERSION . '.' . filemtime($script_asset_path) : PAYME_GATEWAY_VERSION,
+            payme_asset_version('assets/js/payme-blocks.js'),
             true
         );
         

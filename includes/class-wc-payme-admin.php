@@ -7,26 +7,95 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class WC_Payme_Admin {
+class WC_Payme_Admin
+{
 
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         add_action('admin_menu', array($this, 'add_admin_menu'));
         add_action('wp_ajax_payme_test_connection', array($this, 'test_connection'));
         add_action('wp_ajax_payme_get_transaction_details', array($this, 'get_transaction_details'));
         add_action('admin_enqueue_scripts', array($this, 'enqueue_admin_scripts'));
+
+        // Agregar Meta Boxes a la pantalla de Edición de Pedido en WooCommerce
+        add_action('add_meta_boxes', array($this, 'add_order_meta_boxes'));
+    }
+
+    /**
+     * Añade Meta Box en el dashboard de WooCommerce Order
+     */
+    public function add_order_meta_boxes()
+    {
+        // Soporte para WooCommerce Clásico (Post Type)
+        add_meta_box(
+            'payme_transaction_data',
+            __('Pay-me: Logs de la Transacción', 'payme-gateway'),
+            array($this, 'render_order_meta_box'),
+            'shop_order',
+            'normal',
+            'default'
+        );
+        // Soporte para WooCommerce Moderno (HPOS)
+        add_meta_box(
+            'payme_transaction_data_hpos',
+            __('Pay-me: Logs de la Transacción', 'payme-gateway'),
+            array($this, 'render_order_meta_box'),
+            'woocommerce_page_wc-orders',
+            'normal',
+            'default'
+        );
+    }
+
+    /**
+     * Renderiza el contenido del Meta Box leyendo la tabla aislada
+     */
+    public function render_order_meta_box($post_or_order_object)
+    {
+        $order_id = is_a($post_or_order_object, 'WC_Order') ? $post_or_order_object->get_id() : $post_or_order_object->ID;
+
+        global $wpdb;
+        $transactions_table = $wpdb->prefix . 'payme_transactions';
+        $transaction = $wpdb->get_row($wpdb->prepare(
+            "SELECT * FROM $transactions_table WHERE order_id = %d ORDER BY created_at DESC LIMIT 1",
+            $order_id
+        ));
+
+        if (!$transaction) {
+            echo '<p style="color: #666;"><em>' . esc_html__('No hay datos de transacción limpia registrados para este pedido.', 'payme-gateway') . '</em></p>';
+            return;
+        }
+
+        echo '<div class="payme-order-meta">';
+
+        if ($transaction->request_data) {
+            echo '<p><strong>' . esc_html__('Request Payme (Enviado a Alignet):', 'payme-gateway') . '</strong></p>';
+            echo '<pre style="background: #f8f9fa; color: #333; padding: 15px; border: 1px solid #ddd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; font-size: 12px; font-family: monospace;">' . esc_html(wp_json_encode(json_decode($transaction->request_data), JSON_PRETTY_PRINT)) . '</pre>';
+        }
+
+        if ($transaction->response_data) {
+            echo '<p><strong>' . esc_html__('Response Payme (Respuesta de Alignet):', 'payme-gateway') . '</strong></p>';
+            echo '<pre style="background: #f8f9fa; color: #333; padding: 15px; border: 1px solid #ddd; max-height: 250px; overflow-y: auto; white-space: pre-wrap; font-size: 12px; font-family: monospace;">' . esc_html(wp_json_encode(json_decode($transaction->response_data), JSON_PRETTY_PRINT)) . '</pre>';
+        }
+
+        if (!$transaction->request_data && !$transaction->response_data) {
+            echo '<p>' . esc_html__('La transacción existe, pero no guardó payloads.', 'payme-gateway') . '</p>';
+        }
+
+        echo '</div>';
     }
 
     /**
      * Add admin menu
      */
-    public function add_admin_menu() {
+    public function add_admin_menu()
+    {
         add_submenu_page(
             'woocommerce',
-            __('Payme Transacciones', 'payme-gateway'),
-            __('Payme Transacciones', 'payme-gateway'),
+            __('Pay-me Transacciones', 'payme-gateway'),
+            __('Pay-me Transacciones', 'payme-gateway'),
             'manage_woocommerce',
             'payme-transactions',
             array($this, 'transactions_page')
@@ -36,16 +105,18 @@ class WC_Payme_Admin {
     /**
      * Enqueue admin scripts
      */
-    public function enqueue_admin_scripts($hook) {
+    public function enqueue_admin_scripts($hook)
+    {
         if ($hook === 'woocommerce_page_payme-transactions') {
-            wp_enqueue_style('payme-admin', PAYME_GATEWAY_PLUGIN_URL . 'assets/css/payme-admin.css', array(), PAYME_GATEWAY_VERSION);
+            wp_enqueue_style('payme-admin', PAYME_GATEWAY_PLUGIN_URL . 'assets/css/payme-admin.css', array(), payme_asset_version('assets/css/payme-admin.css'));
         }
     }
 
     /**
      * Transactions page
      */
-    public function transactions_page() {
+    public function transactions_page()
+    {
         if (!current_user_can('manage_woocommerce')) {
             wp_die(esc_html__('No tienes permisos para acceder a esta página.', 'payme-gateway'));
         }
@@ -53,16 +124,19 @@ class WC_Payme_Admin {
         $current_tab = isset($_GET['tab']) ? sanitize_text_field($_GET['tab']) : 'transactions';
         ?>
         <div class="wrap">
-            <h1><?php esc_html_e('Payme Gateway', 'payme-gateway'); ?></h1>
+            <h1><?php esc_html_e('Pay-me Gateway', 'payme-gateway'); ?></h1>
 
             <nav class="nav-tab-wrapper">
-                <a href="?page=payme-transactions&tab=transactions" class="nav-tab <?php echo $current_tab === 'transactions' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=payme-transactions&tab=transactions"
+                    class="nav-tab <?php echo $current_tab === 'transactions' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e('Transacciones', 'payme-gateway'); ?>
                 </a>
-                <a href="?page=payme-transactions&tab=logs" class="nav-tab <?php echo $current_tab === 'logs' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=payme-transactions&tab=logs"
+                    class="nav-tab <?php echo $current_tab === 'logs' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e('Logs', 'payme-gateway'); ?>
                 </a>
-                <a href="?page=payme-transactions&tab=stats" class="nav-tab <?php echo $current_tab === 'stats' ? 'nav-tab-active' : ''; ?>">
+                <a href="?page=payme-transactions&tab=stats"
+                    class="nav-tab <?php echo $current_tab === 'stats' ? 'nav-tab-active' : ''; ?>">
                     <?php esc_html_e('Estadísticas', 'payme-gateway'); ?>
                 </a>
             </nav>
@@ -89,9 +163,10 @@ class WC_Payme_Admin {
     /**
      * Render transactions tab
      */
-    private function render_transactions_tab() {
+    private function render_transactions_tab()
+    {
         global $wpdb;
-        
+
         // Handle bulk actions with nonce verification
         if (isset($_POST['action']) && $_POST['action'] === 'bulk_delete' && isset($_POST['transaction_ids'])) {
             if (!isset($_POST['_wpnonce']) || !wp_verify_nonce($_POST['_wpnonce'], 'payme_bulk_action')) {
@@ -99,38 +174,38 @@ class WC_Payme_Admin {
             }
             $this->handle_bulk_delete($_POST['transaction_ids']);
         }
-        
+
         $transactions_table = $wpdb->prefix . 'payme_transactions';
         $per_page = 20;
         $current_page = isset($_GET['paged']) ? max(1, intval($_GET['paged'])) : 1;
         $offset = ($current_page - 1) * $per_page;
-        
+
         // Get filters
         $status_filter = isset($_GET['status']) ? sanitize_text_field($_GET['status']) : '';
         $date_from = isset($_GET['date_from']) ? sanitize_text_field($_GET['date_from']) : '';
         $date_to = isset($_GET['date_to']) ? sanitize_text_field($_GET['date_to']) : '';
-        
+
         // Build query
         $where_conditions = array('1=1');
         $where_values = array();
-        
+
         if ($status_filter) {
             $where_conditions[] = 'status = %s';
             $where_values[] = $status_filter;
         }
-        
+
         if ($date_from) {
             $where_conditions[] = 'created_at >= %s';
             $where_values[] = $date_from . ' 00:00:00';
         }
-        
+
         if ($date_to) {
             $where_conditions[] = 'created_at <= %s';
             $where_values[] = $date_to . ' 23:59:59';
         }
-        
+
         $where_clause = implode(' AND ', $where_conditions);
-        
+
         // Get total count
         $total_query = "SELECT COUNT(*) FROM $transactions_table WHERE $where_clause";
         if ($where_values) {
@@ -138,12 +213,12 @@ class WC_Payme_Admin {
         } else {
             $total_count = $wpdb->get_var($total_query);
         }
-        
+
         // Get transactions
         $query = "SELECT * FROM $transactions_table WHERE $where_clause ORDER BY created_at DESC LIMIT %d OFFSET %d";
         $query_values = array_merge($where_values, array($per_page, $offset));
         $transactions = $wpdb->get_results($wpdb->prepare($query, $query_values));
-        
+
         ?>
         <div class="payme-transactions-wrapper">
             <!-- Filters -->
@@ -151,20 +226,31 @@ class WC_Payme_Admin {
                 <form method="get" action="">
                     <input type="hidden" name="page" value="payme-transactions">
                     <input type="hidden" name="tab" value="transactions">
-                    
+
                     <select name="status">
                         <option value=""><?php esc_html_e('Todos los estados', 'payme-gateway'); ?></option>
-                        <option value="pending" <?php selected($status_filter, 'pending'); ?>><?php esc_html_e('Pendiente', 'payme-gateway'); ?></option>
-                        <option value="completed" <?php selected($status_filter, 'completed'); ?>><?php esc_html_e('Completado', 'payme-gateway'); ?></option>
-                        <option value="failed" <?php selected($status_filter, 'failed'); ?>><?php esc_html_e('Fallido', 'payme-gateway'); ?></option>
-                        <option value="refunded" <?php selected($status_filter, 'refunded'); ?>><?php esc_html_e('Reembolsado', 'payme-gateway'); ?></option>
+                        <option value="pending" <?php selected($status_filter, 'pending'); ?>>
+                            <?php esc_html_e('Pendiente', 'payme-gateway'); ?>
+                        </option>
+                        <option value="completed" <?php selected($status_filter, 'completed'); ?>>
+                            <?php esc_html_e('Completado', 'payme-gateway'); ?>
+                        </option>
+                        <option value="failed" <?php selected($status_filter, 'failed'); ?>>
+                            <?php esc_html_e('Fallido', 'payme-gateway'); ?>
+                        </option>
+                        <option value="refunded" <?php selected($status_filter, 'refunded'); ?>>
+                            <?php esc_html_e('Reembolsado', 'payme-gateway'); ?>
+                        </option>
                     </select>
-                    
-                    <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>" placeholder="<?php esc_attr_e('Desde', 'payme-gateway'); ?>">
-                    <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>" placeholder="<?php esc_attr_e('Hasta', 'payme-gateway'); ?>">
-                    
+
+                    <input type="date" name="date_from" value="<?php echo esc_attr($date_from); ?>"
+                        placeholder="<?php esc_attr_e('Desde', 'payme-gateway'); ?>">
+                    <input type="date" name="date_to" value="<?php echo esc_attr($date_to); ?>"
+                        placeholder="<?php esc_attr_e('Hasta', 'payme-gateway'); ?>">
+
                     <input type="submit" class="button" value="<?php esc_attr_e('Filtrar', 'payme-gateway'); ?>">
-                    <a href="?page=payme-transactions&tab=transactions" class="button"><?php esc_html_e('Limpiar', 'payme-gateway'); ?></a>
+                    <a href="?page=payme-transactions&tab=transactions"
+                        class="button"><?php esc_html_e('Limpiar', 'payme-gateway'); ?></a>
                 </form>
             </div>
 
@@ -200,16 +286,18 @@ class WC_Payme_Admin {
                             <?php foreach ($transactions as $transaction): ?>
                                 <tr>
                                     <th class="check-column">
-                                        <input type="checkbox" name="transaction_ids[]" value="<?php echo esc_attr($transaction->id); ?>">
+                                        <input type="checkbox" name="transaction_ids[]"
+                                            value="<?php echo esc_attr($transaction->id); ?>">
                                     </th>
                                     <td>
-                                        <a href="<?php echo esc_url(admin_url('post.php?post=' . $transaction->order_id . '&action=edit')); ?>">
+                                        <a
+                                            href="<?php echo esc_url(admin_url('post.php?post=' . $transaction->order_id . '&action=edit')); ?>">
                                             #<?php echo esc_html($transaction->order_id); ?>
                                         </a>
                                     </td>
                                     <td><?php echo esc_html($transaction->merchant_operation_number); ?></td>
                                     <td>
-                                        <?php 
+                                        <?php
                                         $amount_class = $transaction->amount < 0 ? 'refund-amount' : '';
                                         echo '<span class="' . $amount_class . '">';
                                         echo wc_price(abs($transaction->amount), array('currency' => $transaction->currency));
@@ -221,9 +309,11 @@ class WC_Payme_Admin {
                                             <?php echo esc_html($this->get_status_label($transaction->status)); ?>
                                         </span>
                                     </td>
-                                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($transaction->created_at))); ?></td>
+                                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($transaction->created_at))); ?>
+                                    </td>
                                     <td>
-                                        <button type="button" class="button button-small view-details" data-transaction-id="<?php echo esc_attr($transaction->id); ?>">
+                                        <button type="button" class="button button-small view-details"
+                                            data-transaction-id="<?php echo esc_attr($transaction->id); ?>">
                                             <?php esc_html_e('Ver Detalles', 'payme-gateway'); ?>
                                         </button>
                                     </td>
@@ -268,33 +358,33 @@ class WC_Payme_Admin {
         </div>
 
         <script>
-        jQuery(document).ready(function($) {
-            // Select all checkbox
-            $('#cb-select-all').change(function() {
-                $('input[name="transaction_ids[]"]').prop('checked', this.checked);
-            });
-            
-            // View details
-            $('.view-details').click(function() {
-                var transactionId = $(this).data('transaction-id');
-                // Load transaction details via AJAX
-                $.post(ajaxurl, {
-                    action: 'payme_get_transaction_details',
-                    transaction_id: transactionId,
-                    nonce: '<?php echo wp_create_nonce('payme_transaction_details'); ?>'
-                }, function(response) {
-                    if (response.success) {
-                        $('#transaction-details-content').html(response.data);
-                        $('#transaction-details-modal').show();
-                    }
+            jQuery(document).ready(function ($) {
+                // Select all checkbox
+                $('#cb-select-all').change(function () {
+                    $('input[name="transaction_ids[]"]').prop('checked', this.checked);
+                });
+
+                // View details
+                $('.view-details').click(function () {
+                    var transactionId = $(this).data('transaction-id');
+                    // Load transaction details via AJAX
+                    $.post(ajaxurl, {
+                        action: 'payme_get_transaction_details',
+                        transaction_id: transactionId,
+                        nonce: '<?php echo wp_create_nonce('payme_transaction_details'); ?>'
+                    }, function (response) {
+                        if (response.success) {
+                            $('#transaction-details-content').html(response.data);
+                            $('#transaction-details-modal').show();
+                        }
+                    });
+                });
+
+                // Close modal
+                $('.close').click(function () {
+                    $('#transaction-details-modal').hide();
                 });
             });
-            
-            // Close modal
-            $('.close').click(function() {
-                $('#transaction-details-modal').hide();
-            });
-        });
         </script>
         <?php
     }
@@ -302,7 +392,8 @@ class WC_Payme_Admin {
     /**
      * Render logs tab
      */
-    private function render_logs_tab() {
+    private function render_logs_tab()
+    {
         global $wpdb;
 
         $logs_table = $wpdb->prefix . 'payme_logs';
@@ -335,8 +426,9 @@ class WC_Payme_Admin {
                 <form method="post" action="" style="display: inline;">
                     <?php wp_nonce_field('payme_clear_logs'); ?>
                     <input type="hidden" name="action" value="clear_logs">
-                    <input type="submit" class="button button-secondary" value="<?php esc_attr_e('Limpiar Logs', 'payme-gateway'); ?>" 
-                           onclick="return confirm('<?php esc_attr_e('¿Estás seguro de que quieres eliminar todos los logs?', 'payme-gateway'); ?>')">
+                    <input type="submit" class="button button-secondary"
+                        value="<?php esc_attr_e('Limpiar Logs', 'payme-gateway'); ?>"
+                        onclick="return confirm('<?php esc_attr_e('¿Estás seguro de que quieres eliminar todos los logs?', 'payme-gateway'); ?>')">
                 </form>
             </div>
 
@@ -353,7 +445,8 @@ class WC_Payme_Admin {
                     <?php if ($logs): ?>
                         <?php foreach ($logs as $log): ?>
                             <tr>
-                                <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($log->created_at))); ?></td>
+                                <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($log->created_at))); ?>
+                                </td>
                                 <td>
                                     <span class="log-level log-level-<?php echo esc_attr($log->level); ?>">
                                         <?php echo esc_html(strtoupper($log->level)); ?>
@@ -362,7 +455,8 @@ class WC_Payme_Admin {
                                 <td><?php echo esc_html($log->message); ?></td>
                                 <td>
                                     <?php if ($log->context): ?>
-                                        <button type="button" class="button button-small view-context" data-context="<?php echo esc_attr($log->context); ?>">
+                                        <button type="button" class="button button-small view-context"
+                                            data-context="<?php echo esc_attr($log->context); ?>">
                                             <?php esc_html_e('Ver', 'payme-gateway'); ?>
                                         </button>
                                     <?php endif; ?>
@@ -385,11 +479,12 @@ class WC_Payme_Admin {
     /**
      * Render stats tab
      */
-    private function render_stats_tab() {
+    private function render_stats_tab()
+    {
         global $wpdb;
-        
+
         $transactions_table = $wpdb->prefix . 'payme_transactions';
-        
+
         // Get stats for last 30 days
         $stats = $wpdb->get_row("
             SELECT 
@@ -401,7 +496,7 @@ class WC_Payme_Admin {
             FROM $transactions_table 
             WHERE created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         ");
-        
+
         // Get daily stats for chart
         $daily_stats = $wpdb->get_results("
             SELECT 
@@ -413,7 +508,7 @@ class WC_Payme_Admin {
             GROUP BY DATE(created_at)
             ORDER BY date DESC
         ");
-        
+
         ?>
         <div class="payme-stats-wrapper">
             <div class="stats-cards">
@@ -422,42 +517,42 @@ class WC_Payme_Admin {
                     <div class="stat-number"><?php echo number_format($stats->total_transactions); ?></div>
                     <div class="stat-period"><?php esc_html_e('Últimos 30 días', 'payme-gateway'); ?></div>
                 </div>
-                
+
                 <div class="stat-card success">
                     <h3><?php esc_html_e('Transacciones Exitosas', 'payme-gateway'); ?></h3>
                     <div class="stat-number"><?php echo number_format($stats->completed_transactions); ?></div>
                     <div class="stat-percentage">
-                        <?php 
+                        <?php
                         $success_rate = $stats->total_transactions > 0 ? ($stats->completed_transactions / $stats->total_transactions) * 100 : 0;
                         echo number_format($success_rate, 1) . '%';
                         ?>
                     </div>
                 </div>
-                
+
                 <div class="stat-card error">
                     <h3><?php esc_html_e('Transacciones Fallidas', 'payme-gateway'); ?></h3>
                     <div class="stat-number"><?php echo number_format($stats->failed_transactions); ?></div>
                     <div class="stat-percentage">
-                        <?php 
+                        <?php
                         $failure_rate = $stats->total_transactions > 0 ? ($stats->failed_transactions / $stats->total_transactions) * 100 : 0;
                         echo number_format($failure_rate, 1) . '%';
                         ?>
                     </div>
                 </div>
-                
+
                 <div class="stat-card">
                     <h3><?php esc_html_e('Monto Total', 'payme-gateway'); ?></h3>
                     <div class="stat-number"><?php echo wc_price($stats->total_amount); ?></div>
                     <div class="stat-period"><?php esc_html_e('Últimos 30 días', 'payme-gateway'); ?></div>
                 </div>
-                
+
                 <div class="stat-card">
                     <h3><?php esc_html_e('Monto Promedio', 'payme-gateway'); ?></h3>
                     <div class="stat-number"><?php echo wc_price($stats->avg_amount ?: 0); ?></div>
                     <div class="stat-period"><?php esc_html_e('Por transacción', 'payme-gateway'); ?></div>
                 </div>
             </div>
-            
+
             <div class="stats-chart">
                 <h3><?php esc_html_e('Transacciones Diarias', 'payme-gateway'); ?></h3>
                 <table class="wp-list-table widefat">
@@ -494,54 +589,57 @@ class WC_Payme_Admin {
     /**
      * Get status label
      */
-    private function get_status_label($status) {
+    private function get_status_label($status)
+    {
         $labels = array(
             'pending' => __('Pendiente', 'payme-gateway'),
             'completed' => __('Completado', 'payme-gateway'),
             'failed' => __('Fallido', 'payme-gateway'),
             'refunded' => __('Reembolsado', 'payme-gateway')
         );
-        
+
         return isset($labels[$status]) ? $labels[$status] : $status;
     }
 
     /**
      * Handle bulk delete
      */
-    private function handle_bulk_delete($transaction_ids) {
+    private function handle_bulk_delete($transaction_ids)
+    {
         global $wpdb;
-        
+
         if (!is_array($transaction_ids)) {
             return;
         }
-        
+
         $transaction_ids = array_map('intval', $transaction_ids);
         $placeholders = implode(',', array_fill(0, count($transaction_ids), '%d'));
-        
+
         $transactions_table = $wpdb->prefix . 'payme_transactions';
         $wpdb->query($wpdb->prepare(
             "DELETE FROM $transactions_table WHERE id IN ($placeholders)",
             $transaction_ids
         ));
-        
-        echo '<div class="notice notice-success"><p>' . 
-             sprintf(__('%d transacciones eliminadas.', 'payme-gateway'), count($transaction_ids)) . 
-             '</p></div>';
+
+        echo '<div class="notice notice-success"><p>' .
+            sprintf(__('%d transacciones eliminadas.', 'payme-gateway'), count($transaction_ids)) .
+            '</p></div>';
     }
 
     /**
      * Test connection AJAX handler
      */
-    public function test_connection() {
+    public function test_connection()
+    {
         check_ajax_referer('payme_test_connection', 'nonce');
-        
+
         if (!current_user_can('manage_woocommerce')) {
             wp_die(__('No tienes permisos para realizar esta acción.', 'payme-gateway'));
         }
-        
+
         $gateway = new WC_Payme_Gateway();
         $access_token = $gateway->get_access_token();
-        
+
         if ($access_token) {
             wp_send_json_success(array(
                 'message' => __('Conexión exitosa con Payme.', 'payme-gateway')
@@ -552,40 +650,41 @@ class WC_Payme_Admin {
             ));
         }
     }
-    
+
     /**
      * Get transaction details AJAX handler
      */
-    public function get_transaction_details() {
+    public function get_transaction_details()
+    {
         check_ajax_referer('payme_transaction_details', 'nonce');
-        
+
         if (!current_user_can('manage_woocommerce')) {
             wp_die(__('No tienes permisos para realizar esta acción.', 'payme-gateway'));
         }
-        
+
         $transaction_id = intval($_POST['transaction_id']);
-        
+
         global $wpdb;
         $transactions_table = $wpdb->prefix . 'payme_transactions';
-        
+
         $transaction = $wpdb->get_row($wpdb->prepare(
             "SELECT * FROM $transactions_table WHERE id = %d",
             $transaction_id
         ));
-        
+
         if (!$transaction) {
             wp_send_json_error(array(
                 'message' => __('Transacción no encontrada.', 'payme-gateway')
             ));
         }
-        
+
         $order = wc_get_order($transaction->order_id);
-        
+
         ob_start();
         ?>
         <div class="transaction-details">
             <h3><?php esc_html_e('Detalles de la Transacción', 'payme-gateway'); ?></h3>
-            
+
             <table class="form-table">
                 <tr>
                     <th><?php esc_html_e('ID Transacción:', 'payme-gateway'); ?></th>
@@ -594,7 +693,8 @@ class WC_Payme_Admin {
                 <tr>
                     <th><?php esc_html_e('Orden:', 'payme-gateway'); ?></th>
                     <td>
-                        <a href="<?php echo esc_url(admin_url('post.php?post=' . $transaction->order_id . '&action=edit')); ?>" target="_blank">
+                        <a href="<?php echo esc_url(admin_url('post.php?post=' . $transaction->order_id . '&action=edit')); ?>"
+                            target="_blank">
                             #<?php echo esc_html($transaction->order_id); ?>
                         </a>
                     </td>
@@ -617,37 +717,41 @@ class WC_Payme_Admin {
                 </tr>
                 <tr>
                     <th><?php esc_html_e('Fecha de Creación:', 'payme-gateway'); ?></th>
-                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($transaction->created_at))); ?></td>
+                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($transaction->created_at))); ?>
+                    </td>
                 </tr>
                 <tr>
                     <th><?php esc_html_e('Última Actualización:', 'payme-gateway'); ?></th>
-                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($transaction->updated_at))); ?></td>
+                    <td><?php echo esc_html(date_i18n(get_option('date_format') . ' ' . get_option('time_format'), strtotime($transaction->updated_at))); ?>
+                    </td>
                 </tr>
                 <?php if ($order): ?>
-                <tr>
-                    <th><?php esc_html_e('Cliente:', 'payme-gateway'); ?></th>
-                    <td><?php echo esc_html($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()); ?></td>
-                </tr>
-                <tr>
-                    <th><?php esc_html_e('Email:', 'payme-gateway'); ?></th>
-                    <td><?php echo esc_html($order->get_billing_email()); ?></td>
-                </tr>
+                    <tr>
+                        <th><?php esc_html_e('Cliente:', 'payme-gateway'); ?></th>
+                        <td><?php echo esc_html($order->get_billing_first_name() . ' ' . $order->get_billing_last_name()); ?></td>
+                    </tr>
+                    <tr>
+                        <th><?php esc_html_e('Email:', 'payme-gateway'); ?></th>
+                        <td><?php echo esc_html($order->get_billing_email()); ?></td>
+                    </tr>
                 <?php endif; ?>
             </table>
-            
+
             <?php if ($transaction->request_data): ?>
-            <h4><?php esc_html_e('Datos de Solicitud', 'payme-gateway'); ?></h4>
-            <pre style="background: #f9f9f9; padding: 10px; border: 1px solid #ddd; max-height: 200px; overflow-y: auto;"><?php echo esc_html(wp_json_encode(json_decode($transaction->request_data), JSON_PRETTY_PRINT)); ?></pre>
+                <h4><?php esc_html_e('Datos de Solicitud', 'payme-gateway'); ?></h4>
+                <pre
+                    style="background: #f9f9f9; padding: 10px; border: 1px solid #ddd; max-height: 200px; overflow-y: auto;"><?php echo esc_html(wp_json_encode(json_decode($transaction->request_data), JSON_PRETTY_PRINT)); ?></pre>
             <?php endif; ?>
-            
+
             <?php if ($transaction->response_data): ?>
-            <h4><?php esc_html_e('Datos de Respuesta', 'payme-gateway'); ?></h4>
-            <pre style="background: #f9f9f9; padding: 10px; border: 1px solid #ddd; max-height: 200px; overflow-y: auto;"><?php echo esc_html(wp_json_encode(json_decode($transaction->response_data), JSON_PRETTY_PRINT)); ?></pre>
+                <h4><?php esc_html_e('Datos de Respuesta', 'payme-gateway'); ?></h4>
+                <pre
+                    style="background: #f9f9f9; padding: 10px; border: 1px solid #ddd; max-height: 200px; overflow-y: auto;"><?php echo esc_html(wp_json_encode(json_decode($transaction->response_data), JSON_PRETTY_PRINT)); ?></pre>
             <?php endif; ?>
         </div>
         <?php
         $content = ob_get_clean();
-        
+
         wp_send_json_success($content);
     }
 }

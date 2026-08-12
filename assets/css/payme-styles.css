@@ -1,5 +1,17 @@
 /* Payme Gateway Styles */
 
+/* Universal Checkout Icon Fix (Prevents logo from breaking theme grids) */
+.wc_payment_method.payment_method_payme label img,
+.wc_payment_method.payment_method_paymecheckout label img {
+    max-height: 24px !important;
+    width: auto !important;
+    vertical-align: middle !important;
+    display: inline-block !important;
+    margin-left: 8px !important;
+    box-shadow: none !important;
+    border-radius: 4px;
+}
+
 /* New improved payment methods container */
 .payme-methods-container {
     margin: 20px 0;
@@ -56,15 +68,15 @@
 }
 
 .payme-method-card:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    border-color: var(--payme-theme-accent, #3b82f6);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 18%, transparent);
     transform: translateY(-1px);
 }
 
 .payme-method-card.selected {
-    border-color: #3b82f6;
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
+    border-color: var(--payme-theme-accent, #3b82f6);
+    background: color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 12%, #ffffff);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 24%, transparent);
     transform: translateY(-1px);
     margin-bottom: 16px;
 }
@@ -143,19 +155,19 @@
 }
 
 .payme-method-card.selected .payme-method-check {
-    background: #3b82f6;
+    background: var(--payme-theme-accent, #3b82f6);
 }
 
 .payme-method-card.selected .payme-method-check svg {
-    color: white;
+    color: var(--payme-theme-on-accent, #ffffff);
 }
 
 .payme-method-card.selected .payme-method-title {
-    color: #1e40af;
+    color: color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 68%, #111827);
 }
 
 .payme-method-card.selected .payme-method-description {
-    color: #3730a3;
+    color: color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 52%, #374151);
 }
 
 /* Payment form appears below selected method */
@@ -213,7 +225,7 @@
     background: #f0f8ff;
 }
 
-.payme-method-option input[type="radio"]:checked + label {
+.payme-method-option input[type="radio"]:checked+label {
     border-color: #007cba;
     background: #e7f3ff;
     font-weight: 600;
@@ -316,8 +328,13 @@
 }
 
 @keyframes payme-spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+    0% {
+        transform: rotate(0deg);
+    }
+
+    100% {
+        transform: rotate(360deg);
+    }
 }
 
 /* Error styles */
@@ -336,42 +353,25 @@
     display: none !important;
 }
 
-/* Ensure Payme Flex form takes full width */
-#payme-flex-form,
+/* Ensure Payme container takes full width without overriding SDK internals */
 #payme-flex-container {
-    width: 100% !important;
-    max-width: none !important;
-    margin: 0 !important;
-    padding: 0 !important;
-    border: none !important;
-    background: transparent !important;
-}
-
-/* Payme Flex iframe styling */
-#payme-flex-form iframe,
-#payme-flex-container iframe {
-    width: 100% !important;
-    border: none !important;
-    border-radius: 8px !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.1) !important;
+    width: 100%;
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    border: none;
+    background: transparent;
 }
 
 /* Add bottom margin to the active method's Flex form so it doesn't stick to the next method card */
-.payme-method-card.selected + .payme-embedded-form,
+.payme-method-card.selected+.payme-embedded-form,
 .payme-embedded-form.visible,
 .payme-embedded-form[style*="display: block"],
 .payme-embedded-form[style*="display:block"] {
     margin-bottom: 24px;
 }
 
-/* Flex form containers inside accordion body */
-[id^="payme-flex-"] iframe,
-[id^="payme-payment-form-"] iframe {
-    width: 100% !important;
-    border: none !important;
-    border-radius: 8px !important;
-    margin-bottom: 20px !important;
-}
+/* Flex form containers inside accordion body — no iframe overrides, let SDK handle its own styles */
 
 /* Payment method icon */
 .payment_method_payme img {
@@ -386,45 +386,45 @@
     .payme-embedded-form {
         margin: 10px 0;
     }
-    
+
     .payme-loading {
         padding: 30px 15px;
     }
-    
+
     .payme-popup-info {
         margin: 10px 0;
         padding: 12px;
     }
-    
+
     /* Mobile optimizations for new payment methods */
     .payme-methods-grid {
         grid-template-columns: 1fr;
         gap: 12px;
     }
-    
+
     .payme-methods-header {
         margin-bottom: 16px;
     }
-    
+
     .payme-methods-header h4 {
         font-size: 16px;
     }
-    
+
     .payme-method-label {
         padding: 16px;
     }
-    
+
     .payme-method-icon {
         width: 40px;
         height: 40px;
         font-size: 20px;
         margin-right: 12px;
     }
-    
+
     .payme-method-title {
         font-size: 15px;
     }
-    
+
     .payme-method-description {
         font-size: 12px;
     }
@@ -434,31 +434,35 @@
     .payme-methods-container {
         margin: 15px 0;
     }
-    
+
     .payme-methods-header {
         padding: 0 5px;
     }
-    
+
     .payme-method-label {
         padding: 14px;
     }
-    
+
     .payme-method-icon {
         width: 36px;
         height: 36px;
         font-size: 18px;
         margin-right: 10px;
     }
-    
+
     .payme-method-check {
         width: 20px;
         height: 20px;
         margin-left: 8px;
     }
-    
+
     .payme-method-check svg {
         width: 14px;
         height: 14px;
+    }
+
+    .payme-embedded-form {
+        padding: 5px;
     }
 }
 
@@ -468,7 +472,7 @@
     margin: 15px 0;
     border-left: 4px solid #007cba;
     background: #fff;
-    box-shadow: 0 1px 1px rgba(0,0,0,0.04);
+    box-shadow: 0 1px 1px rgba(0, 0, 0, 0.04);
 }
 
 .payme-admin-notice.error {
@@ -525,10 +529,407 @@
     box-shadow: 0 1px 3px rgba(245, 158, 11, 0.15);
 }
 
-/* Force light theme — Payme checkout always renders on white regardless of OS dark mode */
-.payment_method_payme,
-.payment_method_payme *,
+/* Force light theme for billing warning only */
 .payme-billing-warning,
 .payme-billing-warning * {
     color-scheme: light;
+}
+
+
+
+
+
+
+
+/* --- Contener el SDK dentro de su espacio disponible ---
+   Evita que el layout interno del SDK desborde el contenedor padre.
+   overflow-x:hidden en el contenedor + width:100% en todos los niveles
+   garantiza que el SDK use exactamente el espacio disponible.          --- */
+#payme-flex-container,
+#payme-payment-form,
+.payme-embedded-form,
+.payme-junto-mode {
+    width: 100% !important;
+    max-width: 100% !important;
+    box-sizing: border-box !important;
+    /*overflow-x: hidden !important;*/
+}
+
+/* Centrado del contenedor padre mediante padding simétrico */
+#payme-flex-container,
+#payme-payment-form {
+    width: 100% !important;
+    box-sizing: border-box !important;
+}
+
+/* =====================================================================
+   CSS SHIELD — Selector de Métodos de Pago (#payme-payment-methods-root)
+   Scoping bajo ID para superar en especificidad cualquier reset de tema.
+   Solo afecta al modo payment_type=separado. El modo junto no usa este ID.
+   ===================================================================== */
+
+/* Reset de herencias peligrosas del tema solo dentro del selector */
+#payme-payment-methods-root {
+    all: initial;
+    --payme-theme-accent: var(--wp--preset--color--primary, var(--e-global-color-accent, var(--e-global-color-primary, #3b82f6)));
+    --payme-theme-on-accent: #ffffff;
+    display: block !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif !important;
+    font-size: 16px !important;
+    line-height: 1.5 !important;
+    color: #1f2937 !important;
+    box-sizing: border-box !important;
+}
+
+#payme-payment-methods-root *,
+#payme-payment-methods-root *::before,
+#payme-payment-methods-root *::after {
+    box-sizing: border-box !important;
+}
+
+/* Header del selector */
+#payme-payment-methods-root .payme-methods-container {
+    margin: 20px 0 !important;
+    padding: 0 !important;
+    background: transparent !important;
+}
+
+#payme-payment-methods-root .payme-methods-header {
+    text-align: center !important;
+    margin-bottom: 20px !important;
+    padding: 0 10px !important;
+}
+
+#payme-payment-methods-root .payme-methods-header h4 {
+    display: block !important;
+    margin: 0 0 8px 0 !important;
+    padding: 0 !important;
+    font-size: 18px !important;
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+    line-height: 1.3 !important;
+    border: none !important;
+    background: none !important;
+}
+
+#payme-payment-methods-root .payme-methods-header p {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 14px !important;
+    color: #6b7280 !important;
+    line-height: 1.4 !important;
+}
+
+/* Lista de métodos */
+#payme-payment-methods-root .payme-methods-list {
+    display: flex !important;
+    flex-direction: column !important;
+    gap: 0 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    list-style: none !important;
+}
+
+#payme-payment-methods-root .payme-method-item {
+    display: flex !important;
+    flex-direction: column !important;
+    margin: 0 !important;
+    padding: 0 !important;
+}
+
+/* Tarjeta de método */
+#payme-payment-methods-root .payme-method-card {
+    position: relative !important;
+    display: block !important;
+    background: #ffffff !important;
+    border: 2px solid #e5e7eb !important;
+    border-radius: 12px !important;
+    margin-bottom: 8px !important;
+    padding: 0 !important;
+    overflow: hidden !important;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+    transition: border-color 0.25s ease, box-shadow 0.25s ease, transform 0.25s ease !important;
+    cursor: pointer !important;
+}
+
+#payme-payment-methods-root .payme-method-card:hover {
+    border-color: var(--payme-theme-accent) !important;
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--payme-theme-accent) 18%, transparent) !important;
+    transform: translateY(-1px) !important;
+}
+
+#payme-payment-methods-root .payme-method-card.selected {
+    border-color: var(--payme-theme-accent) !important;
+    background: color-mix(in srgb, var(--payme-theme-accent) 12%, #ffffff) !important;
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--payme-theme-accent) 24%, transparent) !important;
+    transform: translateY(-1px) !important;
+    margin-bottom: 16px !important;
+}
+
+/* Label — fila flex con el radio a la izquierda */
+#payme-payment-methods-root .payme-method-label {
+    display: flex !important;
+    flex-direction: row !important;
+    align-items: center !important;
+    padding: 16px 20px !important;
+    margin: 0 !important;
+    cursor: pointer !important;
+    width: 100% !important;
+    font-weight: normal !important;
+    float: none !important;
+    text-align: left !important;
+}
+
+/* ── Radio button oculto — el indicador visual es el SVG check a la derecha ── */
+#payme-payment-methods-root .payme-method-card input[type="radio"] {
+    /* Saca el radio del flujo visual sin quitarlo del DOM
+       (el JS lo sigue encontrando con querySelectorAll) */
+    position: absolute !important;
+    opacity: 0 !important;
+    width: 1px !important;
+    height: 1px !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    pointer-events: none !important;
+    overflow: hidden !important;
+    clip: rect(0, 0, 0, 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+    /* Evitar que el tema reactive la visibilidad */
+    display: block !important;
+    visibility: visible !important;
+    /* visible para screen-readers, pero opacity:0 lo oculta visualmente */
+}
+
+
+/* Ícono del método */
+#payme-payment-methods-root .payme-method-icon {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 40px !important;
+    height: 40px !important;
+    min-width: 40px !important;
+    border-radius: 10px !important;
+    margin-right: 16px !important;
+    flex-shrink: 0 !important;
+    overflow: hidden !important;
+}
+
+#payme-payment-methods-root .payme-method-icon img {
+    display: block !important;
+    width: 28px !important;
+    height: 28px !important;
+    object-fit: contain !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    border: none !important;
+    box-shadow: none !important;
+    max-width: none !important;
+}
+
+/* Contenido textual */
+#payme-payment-methods-root .payme-method-content {
+    display: block !important;
+    flex: 1 !important;
+    min-width: 0 !important;
+    overflow: hidden !important;
+}
+
+#payme-payment-methods-root .payme-method-title {
+    display: block !important;
+    margin: 0 0 4px 0 !important;
+    padding: 0 !important;
+    font-size: 15px !important;
+    font-weight: 600 !important;
+    color: #1f2937 !important;
+    line-height: 1.3 !important;
+    white-space: normal !important;
+    border: none !important;
+    background: none !important;
+}
+
+#payme-payment-methods-root .payme-method-card.selected .payme-method-title {
+    color: color-mix(in srgb, var(--payme-theme-accent) 68%, #111827) !important;
+}
+
+#payme-payment-methods-root .payme-method-description {
+    display: block !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    font-size: 13px !important;
+    color: #6b7280 !important;
+    line-height: 1.4 !important;
+    white-space: normal !important;
+}
+
+#payme-payment-methods-root .payme-method-card.selected .payme-method-description {
+    color: color-mix(in srgb, var(--payme-theme-accent) 52%, #374151) !important;
+}
+
+/* Indicador circular de selección (derecha) */
+#payme-payment-methods-root .payme-method-check {
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    width: 24px !important;
+    height: 24px !important;
+    min-width: 24px !important;
+    border-radius: 50% !important;
+    background: #f3f4f6 !important;
+    margin-left: 12px !important;
+    flex-shrink: 0 !important;
+    transition: background 0.25s ease !important;
+}
+
+#payme-payment-methods-root .payme-method-check svg {
+    display: block !important;
+    width: 16px !important;
+    height: 16px !important;
+    color: transparent !important;
+    fill: transparent !important;
+    transition: color 0.25s ease, fill 0.25s ease !important;
+}
+
+#payme-payment-methods-root .payme-method-card.selected .payme-method-check {
+    background: var(--payme-theme-accent) !important;
+}
+
+#payme-payment-methods-root .payme-method-card.selected .payme-method-check svg {
+    color: var(--payme-theme-on-accent) !important;
+    fill: var(--payme-theme-on-accent) !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    #payme-payment-methods-root .payme-method-label {
+        padding: 14px !important;
+    }
+
+    #payme-payment-methods-root .payme-method-icon {
+        width: 36px !important;
+        height: 36px !important;
+        min-width: 36px !important;
+        margin-right: 10px !important;
+    }
+
+    #payme-payment-methods-root .payme-method-check {
+        width: 20px !important;
+        height: 20px !important;
+        min-width: 20px !important;
+    }
+}
+
+/* Fullscreen modal for mobile to give 3DS more space */
+/* Select2 y algunos temas usan z-index de seis cifras. Mientras el modal de
+   pago está abierto, sus controles deben permanecer en la página de fondo. */
+body.payme-modal-open .select2-container,
+body.payme-modal-open .select2-dropdown,
+body.payme-modal-open .select2-container--open {
+    z-index: 0 !important;
+}
+
+#payme-modal-overlay {
+    isolation: isolate;
+    overflow: auto !important;
+    font-family: var(--payme-theme-font, inherit) !important;
+    scrollbar-width: thin;
+    scrollbar-color: var(--payme-theme-accent, #3b82f6) rgba(255, 255, 255, 0.2);
+}
+
+#payme-modal-overlay::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+
+#payme-modal-overlay::-webkit-scrollbar-track {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+#payme-modal-overlay::-webkit-scrollbar-thumb {
+    background: var(--payme-theme-accent, #3b82f6);
+    border: 2px solid transparent;
+    border-radius: 999px;
+    background-clip: padding-box;
+}
+
+#payme-modal-overlay .payment-gateway-container {
+    font-family: var(--payme-theme-font, inherit) !important;
+    accent-color: var(--payme-theme-accent, #3b82f6);
+}
+
+#payme-modal-overlay .payment-gateway-container input,
+#payme-modal-overlay .payment-gateway-container select,
+#payme-modal-overlay .payment-gateway-container textarea,
+#payme-modal-overlay .payment-gateway-container button {
+    font-family: var(--payme-theme-font, inherit) !important;
+}
+
+/* Elementor/CartFlows compatibility for CARD only. Flex builds these four
+   fields as two 49% columns; lock that contract so theme form resets cannot
+   collapse expiry, CVV, first name and last name into narrow fragments. */
+#payme-modal-overlay .payment-gateway-container .payment_method_tarjeta .payment-method-form-content {
+    display: flex !important;
+    flex-wrap: wrap !important;
+    justify-content: space-between !important;
+    column-gap: 2% !important;
+}
+
+#payme-modal-overlay .payment-gateway-container .payment_method_tarjeta .payment-method-form-content > .flex-input {
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+}
+
+#payme-modal-overlay .payment-gateway-container .payment_method_tarjeta .payment-method-form-content > .flex-input.left-half-col,
+#payme-modal-overlay .payment-gateway-container .payment_method_tarjeta .payment-method-form-content > .flex-input.right-half-col {
+    width: 49% !important;
+    max-width: 49% !important;
+    flex: 1 1 49% !important;
+}
+
+#payme-modal-overlay .payment-gateway-container .payment_method_tarjeta .payment-method-form-content > .flex-input > input,
+#payme-modal-overlay .payment-gateway-container .payment_method_tarjeta .payment-method-form-content > .flex-input > select {
+    display: block !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    box-sizing: border-box !important;
+    margin-left: 0 !important;
+    margin-right: 0 !important;
+}
+
+.payme-checkout-modal,
+.payme-checkout-modal-body,
+#payme-modal-flex-form {
+    overflow: visible !important;
+}
+
+#payme-modal-flex-form {
+    box-sizing: border-box !important;
+    transform: none !important;
+}
+
+/* Mobile only: keep the Flex form inside the real viewport width. Desktop
+   keeps the 560px natural canvas; phones use the SDK's responsive layout. */
+@media (max-width: 600px) {
+    #payme-modal-overlay {
+        padding: 12px !important;
+        overflow-x: hidden !important;
+        overflow-y: auto !important;
+    }
+
+    .payme-checkout-modal,
+    .payme-checkout-modal-body,
+    #payme-modal-flex-form {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
+
+    #payme-modal-flex-form .payment-gateway-container {
+        width: 100% !important;
+        max-width: 100% !important;
+        min-width: 0 !important;
+    }
 }

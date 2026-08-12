@@ -1,0 +1,380 @@
+/* Unified Pay-me result component. All selectors are plugin-scoped. */
+.payme-result {
+    --payme-primary-color: var(--wp--preset--color--primary, currentColor);
+    --payme-success-color: #16A572;
+    --payme-warning-color: #F5A623;
+    --payme-error-color: #DC3545;
+    --payme-reversed-color: #667085;
+    --payme-text-color: var(--wp--preset--color--contrast, inherit);
+    --payme-secondary-text-color: inherit;
+    --payme-background-color: var(--wp--preset--color--base, transparent);
+    --payme-subtle-background-color: var(--wp--preset--color--tertiary, rgba(127, 127, 127, 0.06));
+    --payme-border-color: var(--wp--preset--color--contrast-3, rgba(127, 127, 127, 0.24));
+    --payme-border-radius: 12px;
+    --payme-font-family: inherit;
+    --payme-container-width: 720px;
+    --payme-shadow: 0 12px 32px rgba(16, 24, 40, 0.08);
+    --payme-state-color: var(--payme-primary-color);
+    --payme-state-soft-color: rgba(0, 174, 239, 0.12);
+
+    box-sizing: border-box;
+    width: 100%;
+    max-width: var(--payme-container-width);
+    margin: 24px auto 40px;
+    color: var(--payme-text-color);
+    font-family: var(--payme-font-family);
+}
+
+.payme-result *,
+.payme-result *::before,
+.payme-result *::after {
+    box-sizing: border-box;
+}
+
+.payme-result--authorized {
+    --payme-state-color: var(--payme-success-color);
+    --payme-state-soft-color: rgba(22, 165, 114, 0.12);
+}
+
+.payme-result--pending {
+    --payme-state-color: var(--payme-warning-color);
+    --payme-state-soft-color: rgba(245, 166, 35, 0.14);
+}
+
+.payme-result--denied {
+    --payme-state-color: var(--payme-error-color);
+    --payme-state-soft-color: rgba(220, 53, 69, 0.12);
+}
+
+.payme-result--reversed {
+    --payme-state-color: var(--payme-reversed-color);
+    --payme-state-soft-color: rgba(102, 112, 133, 0.12);
+}
+
+.payme-result__container {
+    overflow: hidden;
+    background: var(--payme-background-color);
+    border: 1px solid var(--payme-border-color);
+    border-radius: var(--payme-border-radius);
+    box-shadow: var(--payme-shadow);
+}
+
+.payme-result__logo {
+    display: block;
+    width: auto;
+    max-width: 112px;
+    max-height: 44px;
+    margin: 24px auto 0;
+    object-fit: contain;
+}
+
+.payme-result__status {
+    padding: 28px 32px 24px;
+    text-align: center;
+    border-top: 4px solid var(--payme-state-color);
+}
+
+.payme-result__status-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 12px;
+    color: var(--payme-state-color);
+    background: var(--payme-state-soft-color);
+    border-radius: 50%;
+}
+
+.payme-result__status-icon svg {
+    width: 30px;
+    height: 30px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.25;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.payme-result__badge {
+    display: inline-flex;
+    align-items: center;
+    min-height: 26px;
+    padding: 4px 10px;
+    color: var(--payme-state-color);
+    background: var(--payme-state-soft-color);
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.payme-result__title {
+    margin: 12px 0 6px;
+    color: var(--payme-text-color);
+    font-family: var(--payme-font-family);
+    font-size: clamp(24px, 4vw, 32px);
+    font-weight: 750;
+    line-height: 1.2;
+}
+
+.payme-result__description {
+    max-width: 520px;
+    margin: 0 auto;
+    color: var(--payme-secondary-text-color);
+    font-size: 15px;
+    line-height: 1.55;
+    opacity: 0.76;
+}
+
+.payme-result__amount {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding: 24px 32px;
+    background: var(--payme-subtle-background-color);
+    border-top: 1px solid var(--payme-border-color);
+    border-bottom: 1px solid var(--payme-border-color);
+}
+
+.payme-result__amount-label {
+    color: var(--payme-secondary-text-color);
+    font-size: 12px;
+    font-weight: 650;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    opacity: 0.76;
+}
+
+.payme-result__amount-value {
+    margin: 3px 0;
+    color: var(--payme-text-color);
+    font-size: clamp(28px, 5vw, 38px);
+    font-weight: 750;
+    line-height: 1.2;
+}
+
+.payme-result__payment-method {
+    color: var(--payme-secondary-text-color);
+    font-size: 14px;
+    opacity: 0.76;
+}
+
+.payme-result__details {
+    margin: 0;
+    padding: 8px 32px;
+}
+
+.payme-result__detail-row {
+    display: grid;
+    grid-template-columns: minmax(150px, 0.9fr) minmax(0, 1.1fr);
+    gap: 24px;
+    align-items: center;
+    margin: 0;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--payme-border-color);
+}
+
+.payme-result__detail-row:last-child {
+    border-bottom: 0;
+}
+
+.payme-result__detail-row dt,
+.payme-result__detail-row dd {
+    margin: 0;
+    padding: 0;
+}
+
+.payme-result__detail-row dt {
+    color: var(--payme-secondary-text-color);
+    font-size: 13px;
+    font-weight: 600;
+    opacity: 0.76;
+}
+
+.payme-result__detail-row dd {
+    min-width: 0;
+    color: var(--payme-text-color);
+    font-size: 14px;
+    font-weight: 700;
+    overflow-wrap: anywhere;
+}
+
+.payme-result__transaction dd {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.payme-result__transaction-value {
+    min-width: 0;
+    overflow-wrap: anywhere;
+}
+
+.payme-result__copy-button {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    width: 34px;
+    height: 34px;
+    margin: 0;
+    padding: 0;
+    color: var(--payme-primary-color);
+    background: transparent;
+    border: 1px solid var(--payme-border-color);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background-color 160ms ease, border-color 160ms ease, color 160ms ease;
+}
+
+.payme-result__copy-button:hover,
+.payme-result__copy-button:focus-visible,
+.payme-result__copy-button--copied {
+    color: var(--payme-background-color);
+    background: var(--payme-primary-color);
+    border-color: var(--payme-primary-color);
+    outline: none;
+}
+
+.payme-result__copy-button svg {
+    width: 17px;
+    height: 17px;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.8;
+}
+
+.payme-result__copy-feedback {
+    color: var(--payme-success-color);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.payme-result__qr {
+    padding: 8px 32px 24px;
+    text-align: center;
+}
+
+.payme-result__qr img {
+    width: min(240px, 100%);
+    height: auto;
+    padding: 10px;
+    background: #fff;
+    border: 1px solid var(--payme-border-color);
+    border-radius: calc(var(--payme-border-radius) * 0.75);
+}
+
+.payme-result__actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    padding: 24px 32px 30px;
+    border-top: 1px solid var(--payme-border-color);
+}
+
+.payme-result__primary-button,
+.payme-result__secondary-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 46px;
+    padding: 11px 24px;
+    border: 1px solid transparent;
+    border-radius: calc(var(--payme-border-radius) * 0.75);
+    font-family: var(--payme-font-family);
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.2;
+    text-align: center;
+    text-decoration: none;
+    transition: filter 160ms ease, transform 160ms ease, background-color 160ms ease;
+}
+
+.payme-result__primary-button {
+    color: #fff;
+    background: var(--payme-primary-color);
+    border-color: var(--payme-primary-color);
+}
+
+.payme-result__secondary-button {
+    color: var(--payme-text-color);
+    background: var(--payme-background-color);
+    border-color: var(--payme-border-color);
+}
+
+.payme-result__primary-button:hover,
+.payme-result__primary-button:focus-visible,
+.payme-result__secondary-button:hover,
+.payme-result__secondary-button:focus-visible {
+    filter: brightness(0.94);
+    transform: translateY(-1px);
+    outline: none;
+    text-decoration: none;
+}
+
+/* Avoid showing WooCommerce's internal order ID as the payment operation. */
+.payme-result-page .woocommerce-order-overview {
+    display: none;
+}
+
+.payme-result-page .woocommerce-thankyou-order-failed,
+.payme-result-page .woocommerce-thankyou-order-failed-actions {
+    display: none;
+}
+
+@media (max-width: 600px) {
+    .payme-result {
+        margin: 16px auto 28px;
+    }
+
+    .payme-result__status,
+    .payme-result__amount,
+    .payme-result__details,
+    .payme-result__actions {
+        padding-right: 20px;
+        padding-left: 20px;
+    }
+
+    .payme-result__detail-row {
+        grid-template-columns: 1fr;
+        gap: 5px;
+        padding: 14px 0;
+    }
+
+    .payme-result__transaction dd {
+        flex-wrap: wrap;
+    }
+
+    .payme-result__actions {
+        flex-direction: column;
+    }
+
+    .payme-result__primary-button,
+    .payme-result__secondary-button {
+        width: 100%;
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .payme-result__copy-button,
+    .payme-result__primary-button,
+    .payme-result__secondary-button {
+        transition: none;
+    }
+}
+
+@media print {
+    .payme-result {
+        --payme-shadow: none;
+    }
+
+    .payme-result__actions,
+    .payme-result__copy-button,
+    .payme-result__copy-feedback {
+        display: none;
+    }
+}

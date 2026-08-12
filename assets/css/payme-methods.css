@@ -37,7 +37,7 @@
     left: 0;
     right: 0;
     height: 4px;
-    background: linear-gradient(90deg, #3b82f6, #8b5cf6);
+    background: var(--payme-theme-accent, #3b82f6);
     transform: scaleX(0);
     transition: transform 0.3s ease;
     transform-origin: left;
@@ -49,15 +49,15 @@
 }
 
 .payme-method-card:hover {
-    border-color: #3b82f6;
-    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.15);
+    border-color: var(--payme-theme-accent, #3b82f6);
+    box-shadow: 0 4px 12px color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 18%, transparent);
     transform: translateY(-2px);
 }
 
 .payme-method-card.selected {
-    border-color: #3b82f6;
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
-    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
+    border-color: var(--payme-theme-accent, #3b82f6);
+    background: color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 12%, #ffffff);
+    box-shadow: 0 4px 20px color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 24%, transparent);
     transform: translateY(-2px);
     animation: payme-card-select 0.3s ease;
 }
@@ -120,12 +120,12 @@
 }
 
 .payme-method-card.selected .payme-method-check {
-    background: #3b82f6;
+    background: var(--payme-theme-accent, #3b82f6);
     animation: payme-check-appear 0.3s ease;
 }
 
 .payme-method-card.selected .payme-method-check svg {
-    color: white;
+    color: var(--payme-theme-on-accent, #ffffff);
 }
 
 /* Pulse effect for selected method */
@@ -137,7 +137,7 @@
     right: -2px;
     bottom: -2px;
     border-radius: 50%;
-    border: 2px solid #3b82f6;
+    border: 2px solid var(--payme-theme-accent, #3b82f6);
     opacity: 0;
     animation: payme-pulse 2s infinite;
 }
@@ -198,7 +198,7 @@
 
 /* Focus states for accessibility */
 .payme-method-card input[type="radio"]:focus + .payme-method-label {
-    outline: 2px solid #3b82f6;
+    outline: 2px solid var(--payme-theme-accent, #3b82f6);
     outline-offset: 2px;
 }
 
@@ -248,8 +248,8 @@
 }
 
 .payme-method-card.selected {
-    background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%) !important;
-    border-color: #3b82f6 !important;
+    background: color-mix(in srgb, var(--payme-theme-accent, #3b82f6) 12%, #ffffff) !important;
+    border-color: var(--payme-theme-accent, #3b82f6) !important;
 }
 
 .payme-method-title {

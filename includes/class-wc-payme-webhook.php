@@ -7,7 +7,8 @@ if (!defined('ABSPATH')) {
     exit;
 }
 
-class WC_Payme_Webhook {
+class WC_Payme_Webhook
+{
 
     /**
      * Alignet public keys for signature verification (RSA SHA512)
@@ -19,7 +20,8 @@ class WC_Payme_Webhook {
     /**
      * Constructor
      */
-    public function __construct() {
+    public function __construct()
+    {
         add_action('woocommerce_api_payme_callback', array($this, 'handle_callback'));
         add_action('woocommerce_api_payme_s2s', array($this, 'handle_s2s_notification'));
         add_action('wp_ajax_payme_process_payment', array($this, 'process_payment_response'));
@@ -32,7 +34,8 @@ class WC_Payme_Webhook {
      * Handle Server-to-Server notification from Alignet/Payme
      * POST to /wc-api/payme_s2s/
      */
-    public function handle_s2s_notification() {
+    public function handle_s2s_notification()
+    {
         // Must be POST
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             wp_die('Method not allowed', 'Payme S2S', array('response' => 405));
@@ -60,9 +63,25 @@ class WC_Payme_Webhook {
         // Get gateway settings for environment
         $gateway = new WC_Payme_Gateway();
 
+        // Diagnostic log — only in debug mode (contains body and signature preview)
+        if ($gateway->debug_mode === 'yes') {
+            WC_Payme_Logger::log(
+                'S2S pre-verify diagnostic' .
+                ' | environment: ' . $gateway->environment .
+                ' | body_length: ' . strlen($raw_body) . ' bytes' .
+                ' | body_sha512: ' . hash('sha512', $raw_body) .
+                ' | signature_length: ' . strlen($signature) . ' chars' .
+                ' | signature_preview: ' . substr($signature, 0, 24) . '...'
+            );
+        }
+
         // Verify signature
         if (!$this->verify_s2s_signature($raw_body, $signature, $gateway->environment)) {
-            WC_Payme_Logger::error('S2S: Invalid signature');
+            WC_Payme_Logger::error(
+                'S2S: Invalid signature' .
+                ' | environment_used: ' . $gateway->environment .
+                ' | body_length: ' . strlen($raw_body) . ' bytes'
+            );
             wp_die('Invalid signature', 'Payme S2S', array('response' => 403));
         }
 
@@ -95,9 +114,19 @@ class WC_Payme_Webhook {
             exit;
         }
 
-        // Verify merchant_code matches our config
-        if (!empty($merchant_code) && $merchant_code !== $gateway->merchant_code) {
-            WC_Payme_Logger::error('S2S: merchant_code mismatch. Expected: ' . $gateway->merchant_code . ', Got: ' . $merchant_code);
+        // Verify merchant_code matches our config (Multi-currency support)
+        $valid_merchant_codes = array();
+        if (!empty($gateway->merchant_code)) {
+            $valid_merchant_codes[] = $gateway->merchant_code; // Legacy fallback
+        }
+        foreach ($gateway->currency_credentials as $code => $creds) {
+            if (!empty($creds['merchant_code'])) {
+                $valid_merchant_codes[] = $creds['merchant_code'];
+            }
+        }
+
+        if (!empty($merchant_code) && !empty($valid_merchant_codes) && !in_array($merchant_code, $valid_merchant_codes, true)) {
+            WC_Payme_Logger::error('S2S: merchant_code mismatch. Got: ' . $merchant_code . ', Expected one of: ' . implode(', ', $valid_merchant_codes));
             status_header(200);
             echo 'OK';
             exit;
@@ -112,17 +141,19 @@ class WC_Payme_Webhook {
         ));
 
         if (!$transaction) {
-            WC_Payme_Logger::error('S2S: Transaction not found for operation ' . $merchant_operation_number);
-            status_header(200);
-            echo 'OK';
+            WC_Payme_Logger::error('S2S (Race Condition): Transaction not found for operation ' . $merchant_operation_number . ' - Retornando 409 para forzar reintento en cola.');
+            // Opción C: Si el Webhook llega antes de que el Javascript logre generar el Pedido en WooCommerce, 
+            // devolvemos 409 Conflict. Esto fuerza al servidor de Pay-Me a volver a intentar la notificación en minutos.
+            status_header(409);
+            echo 'Conflict: Order not yet registered by frontend. Please retry later.';
             exit;
         }
 
         $order_id = (int) $transaction->order_id;
         if (!$order_id) {
-            WC_Payme_Logger::error('S2S: No order_id for operation ' . $merchant_operation_number);
-            status_header(200);
-            echo 'OK';
+            WC_Payme_Logger::error('S2S (Race Condition): Operation reserved but order not registered yet for ' . $merchant_operation_number . '.');
+            status_header(409);
+            echo 'Conflict: Order not yet registered by frontend. Please retry later.';
             exit;
         }
 
@@ -134,9 +165,22 @@ class WC_Payme_Webhook {
             exit;
         }
 
-        // Only process if order is on-hold or pending (async payment waiting)
+        // Prevención de Condiciones de Carrera (Race Condition / Idempotencia)
+        // Usamos add_option porque es 100% compatible con HPOS (no usa wp_postmeta) y es atómico a nivel BD.
+        $lock_key = '_payme_webhook_lock_' . md5($merchant_operation_number . $transaction_state);
+        // add_option devuelve false si la opción ya existe (otro hilo ya la tomó).
+        if (!add_option($lock_key, time(), '', 'no')) {
+            if ($gateway->debug_mode === 'yes') {
+                WC_Payme_Logger::log('S2S: Order ' . $order_id . ' locked processing. Ignored duplicate webhook.');
+            }
+            status_header(200);
+            echo 'OK';
+            exit;
+        }
+
+        // Allow processing if order is on-hold, pending, or processing (Option D: Optimistic Security)
         $current_status = $order->get_status();
-        if (!in_array($current_status, array('on-hold', 'pending'), true)) {
+        if (!in_array($current_status, array('on-hold', 'pending', 'processing'), true)) {
             if ($gateway->debug_mode === 'yes') {
                 WC_Payme_Logger::log('S2S: Order ' . $order_id . ' already in status "' . $current_status . '", skipping.');
             }
@@ -144,17 +188,43 @@ class WC_Payme_Webhook {
             echo 'OK';
             exit;
         }
+        // Determine if payment was strictly successful (Milimetric Flex V3 Validation)
+        // The ONLY proof of funds in VPOS Flex is transaction_state = 'AUTORIZADO'.
+        $is_authorized = ($transaction_state === 'AUTORIZADO');
 
-        // Determine if payment was successful
-        $is_authorized = ($transaction_state === 'AUTORIZADO')
-            || ($success === true || $success === 'true')
-            || ($status_code === '00');
+        $is_pending = ($transaction_state === 'PENDIENTE') || ($transaction_state === 'PENDING') || ($transaction_state === 'REVIEW') || ($transaction_state === 'EN_PROCESO') || ($transaction_state === 'REGISTRADO');
+
+        if ($is_pending) {
+            // Log pending state but do not touch the order status, leave it as on-hold
+            $order->add_order_note(sprintf(
+                __('S2S Webhook: Transacción en estado PENDIENTE o REVISIÓN. ID: %s.', 'payme-gateway'),
+                $transaction_id ?: 'N/A'
+            ));
+
+            $wpdb->update(
+                $transactions_table,
+                array(
+                    'status' => 'pending',
+                    'response_data' => wp_json_encode($this->merge_response_data($transaction->response_data, $data)),
+                ),
+                array('merchant_operation_number' => $merchant_operation_number),
+                array('%s', '%s'),
+                array('%s')
+            );
+
+            // Still acknowledge receipt to Alignet
+            status_header(200);
+            echo 'OK';
+            exit;
+        }
 
         if ($is_authorized) {
-            // Update order to processing
-            $order->payment_complete($transaction_id);
+            // Update order to processing (if it's not already)
+            if (!$order->has_status('completed')) {
+                $order->payment_complete($transaction_id);
+            }
             $order->add_order_note(sprintf(
-                __('Pago confirmado vía notificación S2S de Payme. ID transacción: %s. Operación: %s', 'payme-gateway'),
+                __('Conciliación completada: Transacción S2S recibida de Pay-me. Operación validada. ID de Transacción: %s. Operación de Merchant: %s.', 'payme-gateway'),
                 $transaction_id ?: 'N/A',
                 $merchant_operation_number
             ));
@@ -164,7 +234,7 @@ class WC_Payme_Webhook {
                 $transactions_table,
                 array(
                     'status' => 'completed',
-                    'response_data' => wp_json_encode($data),
+                    'response_data' => wp_json_encode($this->merge_response_data($transaction->response_data, $data)),
                 ),
                 array('merchant_operation_number' => $merchant_operation_number),
                 array('%s', '%s'),
@@ -186,7 +256,7 @@ class WC_Payme_Webhook {
                 $transactions_table,
                 array(
                     'status' => 'failed',
-                    'response_data' => wp_json_encode($data),
+                    'response_data' => wp_json_encode($this->merge_response_data($transaction->response_data, $data)),
                 ),
                 array('merchant_operation_number' => $merchant_operation_number),
                 array('%s', '%s'),
@@ -205,28 +275,94 @@ class WC_Payme_Webhook {
     }
 
     /**
+     * Preserve presentation fields from the browser response (QR, CIP,
+     * expiration) while giving the verified S2S payload precedence.
+     */
+    private function merge_response_data($stored_response, $s2s_data)
+    {
+        $stored = json_decode((string) $stored_response, true);
+        if (!is_array($stored)) {
+            $stored = array();
+        }
+        return array_replace_recursive($stored, $s2s_data);
+    }
+
+    /**
      * Verify RSA SHA512 signature from Alignet
      */
-    private function verify_s2s_signature($raw_body, $signature_b64, $environment) {
+    private function verify_s2s_signature($raw_body, $signature_b64, $environment)
+    {
         $public_key_b64 = ($environment === 'production')
             ? self::ALIGNET_PUBLIC_KEY_PRODUCTION
             : self::ALIGNET_PUBLIC_KEY_SANDBOX;
 
-        $pem = "-----BEGIN PUBLIC KEY-----\n" . wordwrap($public_key_b64, 64, "\n", true) . "\n-----END PUBLIC KEY-----";
+        // Defensive cleanup: strip any accidental whitespace/newlines from the stored constant
+        // before re-wrapping. wordwrap() does not remove pre-existing newlines, so a constant
+        // with trailing whitespace would produce a malformed PEM and trigger
+        // "error:0909006C:PEM routines:get_name:no start line".
+        $public_key_b64_clean = preg_replace('/\s+/', '', $public_key_b64);
+
+        $pem = "-----BEGIN PUBLIC KEY-----\n"
+            . wordwrap($public_key_b64_clean, 64, "\n", true)
+            . "\n-----END PUBLIC KEY-----";
+
+        // Clear the OpenSSL error queue before attempting to load the key,
+        // so that any subsequent errors captured are exclusively from this call.
+        while (openssl_error_string() !== false) {
+            // flush
+        }
 
         $public_key = openssl_pkey_get_public($pem);
         if (!$public_key) {
-            WC_Payme_Logger::error('S2S: Failed to parse public key');
+            $pem_errors = array();
+            while ($pem_err = openssl_error_string()) {
+                $pem_errors[] = $pem_err;
+            }
+            WC_Payme_Logger::error(
+                'S2S: Failed to parse public key' .
+                ' | environment: ' . $environment .
+                ' | key_base64_length: ' . strlen($public_key_b64_clean) . ' chars' .
+                (count($pem_errors) > 0
+                    ? ' | openssl_errors: ' . implode(' / ', $pem_errors)
+                    : ' | openssl_errors: none'
+                )
+            );
             return false;
         }
 
         $signature_bin = base64_decode($signature_b64, true);
         if ($signature_bin === false) {
-            WC_Payme_Logger::error('S2S: Failed to decode base64 signature');
+            WC_Payme_Logger::error(
+                'S2S: Failed to decode base64 signature' .
+                ' | signature_length: ' . strlen($signature_b64) . ' chars' .
+                ' | signature_preview: ' . substr($signature_b64, 0, 24) . '...'
+            );
             return false;
         }
 
         $result = openssl_verify($raw_body, $signature_bin, $public_key, OPENSSL_ALGO_SHA512);
+
+        if ($result !== 1) {
+            // Collect OpenSSL error queue (may have multiple entries)
+            $openssl_errors = array();
+            while ($openssl_error = openssl_error_string()) {
+                $openssl_errors[] = $openssl_error;
+            }
+
+            WC_Payme_Logger::error(
+                'S2S: Signature verification failed' .
+                ' | openssl_result: ' . $result .
+                ' (' . ($result === 0 ? 'firma invalida — clave incorrecta o body modificado' : 'error interno de OpenSSL') . ')' .
+                ' | environment: ' . $environment .
+                ' | body_length: ' . strlen($raw_body) . ' bytes' .
+                ' | body_sha512: ' . hash('sha512', $raw_body) .
+                ' | signature_bin_length: ' . strlen($signature_bin) . ' bytes' .
+                (count($openssl_errors) > 0
+                    ? ' | openssl_errors: ' . implode(' / ', $openssl_errors)
+                    : ' | openssl_errors: none'
+                )
+            );
+        }
 
         return ($result === 1);
     }
@@ -236,7 +372,8 @@ class WC_Payme_Webhook {
     /**
      * Handle payment callback from frontend (POST only)
      */
-    public function handle_callback() {
+    public function handle_callback()
+    {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             return;
         }
@@ -260,7 +397,8 @@ class WC_Payme_Webhook {
     /**
      * Process payment response via AJAX
      */
-    public function process_payment_response() {
+    public function process_payment_response()
+    {
         if (!wp_verify_nonce($_POST['nonce'] ?? '', 'payme_checkout_nonce')) {
             wp_send_json_error('Security check failed');
         }
@@ -273,7 +411,7 @@ class WC_Payme_Webhook {
         }
 
         $result = $this->process_payment_response_data($order_id, $response_data);
-        
+
         if ($result) {
             $order = wc_get_order($order_id);
             wp_send_json_success(array(
@@ -287,16 +425,17 @@ class WC_Payme_Webhook {
     /**
      * Process payment response data
      */
-    private function process_payment_response_data($order_id, $response_data) {
+    private function process_payment_response_data($order_id, $response_data)
+    {
         $order = wc_get_order($order_id);
-        
+
         if (!$order) {
             WC_Payme_Logger::log('Order not found: ' . $order_id);
             return false;
         }
 
         $gateway = new WC_Payme_Gateway();
-        
+
         try {
             $this->update_transaction($order_id, $response_data);
 
@@ -305,7 +444,7 @@ class WC_Payme_Webhook {
             }
 
             $status_code = $this->get_status_code($response_data);
-            
+
             if ($status_code === '00') {
                 $this->handle_successful_payment($order, $response_data);
                 return true;
@@ -321,7 +460,8 @@ class WC_Payme_Webhook {
         }
     }
 
-    private function get_status_code($response_data) {
+    private function get_status_code($response_data)
+    {
         if (isset($response_data['authorization']['meta']['status']['code'])) {
             return $response_data['authorization']['meta']['status']['code'];
         }
@@ -337,9 +477,10 @@ class WC_Payme_Webhook {
         return '99';
     }
 
-    private function handle_successful_payment($order, $response_data) {
+    private function handle_successful_payment($order, $response_data)
+    {
         $transaction_id = $this->get_transaction_id($response_data);
-        
+
         if ($transaction_id) {
             $order->set_transaction_id($transaction_id);
         }
@@ -348,31 +489,33 @@ class WC_Payme_Webhook {
         if ($transaction_id) {
             $note .= ' ' . sprintf(__('ID de transacción: %s', 'payme-gateway'), $transaction_id);
         }
-        
+
         $order->add_order_note($note);
         $order->payment_complete($transaction_id);
         wc_reduce_stock_levels($order->get_id());
         WC()->cart->empty_cart();
-        
+
         WC_Payme_Logger::log('Payment completed successfully for order ' . $order->get_id());
     }
 
-    private function handle_failed_payment($order, $response_data, $status_code) {
+    private function handle_failed_payment($order, $response_data, $status_code)
+    {
         $error_message = $this->get_error_message($response_data, $status_code);
-        
+
         $note = sprintf(
             __('Pago falló con Payme. Código: %s. Mensaje: %s', 'payme-gateway'),
             $status_code,
             $error_message
         );
-        
+
         $order->add_order_note($note);
         $order->update_status('failed', $note);
-        
+
         WC_Payme_Logger::log('Payment failed for order ' . $order->get_id() . '. Code: ' . $status_code);
     }
 
-    private function get_transaction_id($response_data) {
+    private function get_transaction_id($response_data)
+    {
         if (isset($response_data['authorization']['transaction_id'])) {
             return $response_data['authorization']['transaction_id'];
         }
@@ -385,7 +528,8 @@ class WC_Payme_Webhook {
         return null;
     }
 
-    private function get_error_message($response_data, $status_code) {
+    private function get_error_message($response_data, $status_code)
+    {
         if (isset($response_data['authorization']['meta']['status']['message_ilgn'])) {
             $messages = $response_data['authorization']['meta']['status']['message_ilgn'];
             if (is_array($messages) && !empty($messages)) {
@@ -404,7 +548,8 @@ class WC_Payme_Webhook {
         return $this->get_generic_error_message($status_code);
     }
 
-    private function get_generic_error_message($status_code) {
+    private function get_generic_error_message($status_code)
+    {
         $error_messages = array(
             '01' => __('Contactar al banco', 'payme-gateway'),
             '05' => __('Pago no aceptado por el emisor', 'payme-gateway'),
@@ -421,12 +566,13 @@ class WC_Payme_Webhook {
         return $error_messages[$status_code] ?? __('Error en el procesamiento del pago', 'payme-gateway');
     }
 
-    private function update_transaction($order_id, $response_data) {
+    private function update_transaction($order_id, $response_data)
+    {
         global $wpdb;
         $transactions_table = $wpdb->prefix . 'payme_transactions';
         $status_code = $this->get_status_code($response_data);
         $status = ($status_code === '00') ? 'success' : 'failed';
-        
+
         $wpdb->update(
             $transactions_table,
             array(
