@@ -36,6 +36,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
     public $redirect_url;
     public $enabled_currencies;
     public $currency_credentials;
+    public $payload_field_configuration;
 
     /**
      * Constructor
@@ -85,6 +86,17 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
         if (!is_array($this->currency_credentials)) {
             $this->currency_credentials = array();
         }
+        $stored_payload_configuration = $this->get_option('payload_field_configuration_data', '');
+        if ($stored_payload_configuration === '') {
+            $stored_payload_configuration = get_option($this->get_payload_configuration_option_key(), null);
+        }
+        if ($stored_payload_configuration === null || $stored_payload_configuration === '') {
+            $stored_payload_configuration = $this->get_option('payload_field_configuration', '');
+        }
+        $this->payload_field_configuration = $this->decode_payload_field_configuration($stored_payload_configuration);
+        $this->settings['payload_field_configuration_data'] = empty($this->payload_field_configuration)
+            ? '{}'
+            : wp_json_encode($this->payload_field_configuration);
 
         // Legacy fallback: use old single credentials if no multi-currency configured
         $this->client_id = $this->get_option('client_id');
@@ -137,7 +149,31 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
      */
     public function process_admin_options()
     {
-        parent::process_admin_options();
+        $payload_field_key = $this->get_field_key('payload_field_configuration_data');
+        $posted_payload = isset($_POST[$payload_field_key]) // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            ? wp_unslash($_POST[$payload_field_key]) // phpcs:ignore WordPress.Security.NonceVerification.Missing
+            : null;
+
+        $saved = parent::process_admin_options();
+
+        // WooCommerce does not consistently persist values from custom field
+        // types across all supported versions. Save this hidden JSON value
+        // explicitly as part of the same final settings submission.
+        if ($posted_payload !== null) {
+            $decoded_payload = json_decode((string) $posted_payload, true);
+            if (is_array($decoded_payload)) {
+                $sanitized_payload = $this->sanitize_payload_field_configuration($decoded_payload, true);
+                if ($sanitized_payload !== false) {
+                    $encoded_payload = wp_json_encode($sanitized_payload);
+                    $this->settings['payload_field_configuration_data'] = $encoded_payload;
+                    $this->settings['payload_field_configuration'] = $encoded_payload;
+                    update_option($this->get_option_key(), $this->settings);
+                    update_option($this->get_payload_configuration_option_key(), $encoded_payload);
+                    $this->payload_field_configuration = $sanitized_payload;
+                }
+            }
+        }
+
         $raw_creds = $this->get_option('currency_credentials', '');
         $this->currency_credentials = !empty($raw_creds) ? json_decode($raw_creds, true) : array();
         if (!is_array($this->currency_credentials)) {
@@ -147,6 +183,28 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
         if (!is_array($this->enabled_currencies)) {
             $this->enabled_currencies = array();
         }
+        $stored_payload_configuration = $this->get_option('payload_field_configuration_data', '');
+        if ($stored_payload_configuration === '') {
+            $stored_payload_configuration = get_option($this->get_payload_configuration_option_key(), null);
+        }
+        if ($stored_payload_configuration === null || $stored_payload_configuration === '') {
+            $stored_payload_configuration = $this->get_option('payload_field_configuration', '');
+        }
+        $this->payload_field_configuration = $this->decode_payload_field_configuration($stored_payload_configuration);
+        $this->settings['payload_field_configuration_data'] = empty($this->payload_field_configuration)
+            ? '{}'
+            : wp_json_encode($this->payload_field_configuration);
+
+        return $saved;
+    }
+
+    /**
+     * Dedicated option used to keep the custom payload editor persistent even
+     * when WooCommerce rebuilds the gateway settings array.
+     */
+    private function get_payload_configuration_option_key()
+    {
+        return $this->get_option_key() . '_payload_field_configuration';
     }
 
     /**
@@ -373,6 +431,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                             savedCreds[cur][field] = $(this).val();
                             syncCredField();
                         });
+
                     }
 
                     function syncCredField() {
@@ -959,10 +1018,19 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                 'class' => 'payme-payment-methods-order',
                 'css' => 'display:none;',
             ),
-            'additional_fields_section' => array(
-                'title' => __('Additional Fields', 'payme-gateway'),
-                'type' => 'title',
-                'description' => __('Más adelante.', 'payme-gateway'),
+            'payload_field_configuration_data' => array(
+                'title' => '',
+                'type' => 'text',
+                'description' => '',
+                'default' => '',
+                'css' => 'display:none;',
+                'class' => 'payme-payload-configuration-data',
+            ),
+            'payload_field_configuration' => array(
+                'title' => __('Configuración de datos del payload', 'payme-gateway'),
+                'type' => 'payload_configuration',
+                'description' => __('Define cómo se obtendrán determinados campos enviados a Pay-me. Puedes utilizar el valor recibido desde tu tienda o establecer un valor estático.', 'payme-gateway'),
+                'default' => '',
             ),
             'advanced_section' => array(
                 'title' => __('Opciones Avanzadas', 'payme-gateway'),
@@ -1082,6 +1150,317 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
         </tr>
         <?php
         return ob_get_clean();
+    }
+
+    /**
+     * Fields that can be resolved from checkout data or a merchant-defined value.
+     * Keeping this definition in one place makes the feature extensible.
+     */
+    private function get_configurable_payload_fields()
+    {
+        return array(
+            'first_name' => array(
+                'label' => __('Nombre', 'payme-gateway'),
+                'billing_key' => 'first_name',
+                'payload_path' => 'billing.first_name',
+                'required' => true,
+            ),
+            'last_name' => array(
+                'label' => __('Apellido', 'payme-gateway'),
+                'billing_key' => 'last_name',
+                'payload_path' => 'billing.last_name',
+                'required' => true,
+            ),
+            'email' => array(
+                'label' => __('Correo electrónico', 'payme-gateway'),
+                'billing_key' => 'email',
+                'payload_path' => 'billing.email',
+                'required' => true,
+                'format' => 'email',
+            ),
+            'phone_country_code' => array(
+                'label' => __('Código telefónico', 'payme-gateway'),
+                'billing_key' => null,
+                'payload_path' => 'billing.phone.country_code',
+                'required' => true,
+            ),
+            'phone' => array(
+                'label' => __('Teléfono', 'payme-gateway'),
+                'billing_key' => 'phone',
+                'payload_path' => 'billing.phone.subscriber',
+                'required' => true,
+                'format' => 'phone',
+            ),
+            // Keep the existing configuration keys for backwards compatibility.
+            'address' => array(
+                'label' => __('Dirección', 'payme-gateway'),
+                'billing_key' => 'address_1',
+                'payload_path' => 'billing.location.line_1',
+                'required' => true,
+            ),
+            'address_2' => array(
+                'label' => __('Dirección adicional', 'payme-gateway'),
+                'billing_key' => 'address_2',
+                'payload_path' => 'billing.location.line_2',
+                'required' => false,
+            ),
+            'city' => array(
+                'label' => __('Ciudad', 'payme-gateway'),
+                'billing_key' => 'city',
+                'payload_path' => 'billing.location.city',
+                'required' => true,
+            ),
+            'state' => array(
+                'label' => __('Estado / Provincia', 'payme-gateway'),
+                'billing_key' => 'state',
+                'payload_path' => 'billing.location.state',
+                'required' => true,
+            ),
+            'country' => array(
+                'label' => __('País', 'payme-gateway'),
+                'billing_key' => 'country',
+                'payload_path' => 'billing.location.country',
+                'required' => true,
+            ),
+            'postcode' => array(
+                'label' => __('Código postal', 'payme-gateway'),
+                'billing_key' => 'postcode',
+                'payload_path' => 'billing.location.zip_code',
+                'required' => false,
+            ),
+        );
+    }
+
+    /**
+     * Render the compact payload configuration editor inside WooCommerce settings.
+     */
+    public function generate_payload_configuration_html($key, $data)
+    {
+        $field_key = $this->get_field_key('payload_field_configuration_data');
+        ob_start();
+        ?>
+        <tr valign="top" class="payme-payload-configuration-row">
+            <th scope="row" class="titledesc payme-payload-description">
+                <label for="<?php echo esc_attr($field_key); ?>">
+                    <?php echo esc_html($data['title']); ?>
+                </label>
+                <p class="description">
+                    <?php echo esc_html($data['description']); ?>
+                </p>
+            </th>
+            <td class="forminp payme-payload-configuration-cell">
+                <section id="payme-payload-configuration" class="payme-payload-card">
+                    <div class="payme-payload-table-wrap">
+                        <table class="payme-payload-table">
+                            <thead>
+                                <tr>
+                                    <th><?php esc_html_e('Campo', 'payme-gateway'); ?></th>
+                                    <th><?php esc_html_e('Parámetro', 'payme-gateway'); ?></th>
+                                    <th><?php esc_html_e('Modo de envío', 'payme-gateway'); ?></th>
+                                    <th><?php esc_html_e('Valor', 'payme-gateway'); ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($this->get_configurable_payload_fields() as $parameter => $definition): ?>
+                                    <tr data-payload-field="<?php echo esc_attr($parameter); ?>">
+                                        <td class="payme-payload-field-label"><?php echo esc_html($definition['label']); ?></td>
+                                        <td><code><?php echo esc_html($definition['payload_path']); ?></code></td>
+                                        <td>
+                                            <div class="payme-payload-mode" role="group" aria-label="<?php echo esc_attr(sprintf(__('Modo de envío de %s', 'payme-gateway'), $definition['label'])); ?>">
+                                                <button type="button" data-mode="dynamic"><?php esc_html_e('Dinámico', 'payme-gateway'); ?></button>
+                                                <button type="button" data-mode="static"><?php esc_html_e('Estático', 'payme-gateway'); ?></button>
+                                            </div>
+                                        </td>
+                                        <td class="payme-payload-value-cell">
+                                            <span class="payme-payload-dynamic-value" aria-hidden="true">—</span>
+                                            <label class="payme-payload-static-wrap">
+                                                <span><?php esc_html_e('Valor estático', 'payme-gateway'); ?></span>
+                                                <input type="text" class="payme-payload-static-value" autocomplete="off" />
+                                            </label>
+                                            <span class="payme-payload-field-error" role="alert"></span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                </section>
+            </td>
+        </tr>
+        <?php
+        return ob_get_clean();
+    }
+
+    /**
+     * Sanitize and validate the JSON saved by the custom settings control.
+     */
+    public function validate_payload_configuration_field($key, $value)
+    {
+        // This custom field only renders the visual editor. Its data is posted
+        // and persisted through payload_field_configuration_data, a standard
+        // WooCommerce text field, so an empty visual value is expected.
+        if ($value === null || $value === '') {
+            return isset($this->settings['payload_field_configuration'])
+                ? $this->settings['payload_field_configuration']
+                : '';
+        }
+
+        $raw = is_string($value) ? json_decode(wp_unslash($value), true) : $value;
+        if (!is_array($raw)) {
+            WC_Admin_Settings::add_error(__('No se pudo interpretar la configuración de datos del payload.', 'payme-gateway'));
+            return $this->get_option($key, '');
+        }
+
+        $sanitized = $this->sanitize_payload_field_configuration($raw, true);
+        if ($sanitized === false) {
+            return $this->get_option($key, '');
+        }
+
+        return wp_json_encode($sanitized);
+    }
+
+    private function decode_payload_field_configuration($value)
+    {
+        $decoded = is_array($value) ? $value : json_decode((string) $value, true);
+        return is_array($decoded) ? $this->sanitize_payload_field_configuration($decoded, false) : array();
+    }
+
+    private function sanitize_payload_field_configuration($configuration, $report_errors)
+    {
+        $result = array();
+        $fields = $this->get_configurable_payload_fields();
+
+        // Migrate the previous environment/currency structure to one global
+        // billing configuration. Prefer the active scope, then any saved scope.
+        if (isset($configuration['sandbox']) || isset($configuration['production'])) {
+            $currency = strtoupper(get_woocommerce_currency());
+            $scoped = isset($configuration[$this->environment][$currency])
+                && is_array($configuration[$this->environment][$currency])
+                ? $configuration[$this->environment][$currency]
+                : array();
+
+            if (empty($scoped)) {
+                foreach (array('sandbox', 'production') as $environment) {
+                    foreach (array_keys(self::CURRENCY_ISO_MAP) as $currency_code) {
+                        if (!empty($configuration[$environment][$currency_code]) && is_array($configuration[$environment][$currency_code])) {
+                            $scoped = $configuration[$environment][$currency_code];
+                            break 2;
+                        }
+                    }
+                }
+            }
+            $configuration = $scoped;
+        }
+
+        foreach ($fields as $parameter => $definition) {
+            $entry = isset($configuration[$parameter]) && is_array($configuration[$parameter])
+                ? $configuration[$parameter]
+                : array();
+            $mode = isset($entry['mode']) && $entry['mode'] === 'static' ? 'static' : 'dynamic';
+            $static_value = isset($entry['value']) && is_scalar($entry['value'])
+                ? $this->sanitize_payload_field_value($entry['value'], $definition)
+                : '';
+
+            if ($mode === 'static' && $static_value === '') {
+                if ($report_errors) {
+                    WC_Admin_Settings::add_error(sprintf(
+                        __('El valor estático de %s es obligatorio.', 'payme-gateway'),
+                        $definition['label']
+                    ));
+                    return false;
+                }
+                continue;
+            }
+
+            if ($mode === 'static') {
+                $result[$parameter] = array(
+                    'mode' => 'static',
+                    'value' => $static_value,
+                );
+            }
+        }
+
+        return $result;
+    }
+
+    /**
+     * Return the effective global mode/value billing configuration.
+     * Missing entries intentionally resolve to dynamic for backwards compatibility.
+     */
+    private function get_effective_payload_field_configuration($currency = null)
+    {
+        $saved = is_array($this->payload_field_configuration)
+            ? $this->payload_field_configuration
+            : array();
+        $effective = array();
+
+        foreach ($this->get_configurable_payload_fields() as $parameter => $definition) {
+            $entry = isset($saved[$parameter]) && is_array($saved[$parameter]) ? $saved[$parameter] : array();
+            $effective[$parameter] = array(
+                'mode' => isset($entry['mode']) && $entry['mode'] === 'static' ? 'static' : 'dynamic',
+                'value' => isset($entry['value']) ? (string) $entry['value'] : '',
+            );
+        }
+
+        return $effective;
+    }
+
+    /**
+     * Resolve configurable, non-PCI billing fields and their effective values.
+     */
+    private function resolve_payload_fields($billing, $currency = null)
+    {
+        $configuration = $this->get_effective_payload_field_configuration($currency);
+        $trace = array();
+        $processed = array();
+        $missing = array();
+
+        foreach ($this->get_configurable_payload_fields() as $parameter => $definition) {
+            $received = $definition['billing_key'] === null
+                ? $this->get_phone_country_code()
+                : (isset($billing[$definition['billing_key']]) ? $billing[$definition['billing_key']] : '');
+            $received = $this->sanitize_payload_field_value($received, $definition);
+            $mode = $configuration[$parameter]['mode'];
+            $value = $mode === 'static' ? $configuration[$parameter]['value'] : $received;
+            $value = $this->sanitize_payload_field_value($value, $definition);
+            $final_value = $value === '' ? null : $value;
+
+            $trace[$parameter] = array(
+                'received' => $received === '' ? null : $received,
+                'mode' => $mode,
+                'value' => $final_value,
+            );
+            $processed[$parameter] = $final_value;
+
+            if ($final_value === null && !empty($definition['required'])) {
+                $missing[] = $definition['label'];
+            }
+        }
+
+        return array(
+            'fields' => $trace,
+            'processed' => $processed,
+            'missing' => $missing,
+        );
+    }
+
+    /**
+     * Normalize configurable values before they are inserted into the payload.
+     */
+    private function sanitize_payload_field_value($value, $definition)
+    {
+        $value = is_scalar($value) ? trim((string) $value) : '';
+        $format = isset($definition['format']) ? $definition['format'] : 'text';
+
+        if ($format === 'email') {
+            return sanitize_email($value);
+        }
+        if ($format === 'phone') {
+            return preg_replace('/[^0-9]/', '', $value);
+        }
+
+        return sanitize_text_field($value);
     }
 
     /**
@@ -1263,6 +1642,13 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
         ) {
 
             wp_enqueue_style('payme-admin-styles', PAYME_GATEWAY_PLUGIN_URL . 'assets/css/payme-admin.css', array(), payme_asset_version('assets/css/payme-admin.css'));
+            wp_enqueue_script(
+                'payme-admin-payload',
+                PAYME_GATEWAY_PLUGIN_URL . 'assets/js/payme-admin-payload.js',
+                array('jquery'),
+                payme_asset_version('assets/js/payme-admin-payload.js'),
+                true
+            );
         }
     }
 
@@ -1311,6 +1697,10 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
             'display_mode' => $this->display_mode,
             'payment_type' => $this->payment_type,
             'hide_animation' => $this->get_option('hide_animation', 'no'),
+            'payload_field_modes' => array_map(function ($entry) {
+                return $entry['mode'];
+            }, $this->get_effective_payload_field_configuration(get_woocommerce_currency())),
+            'phone_country_code' => $this->get_phone_country_code(),
             'currency' => get_woocommerce_currency(),
             'callback_url' => WC()->api_request_url('payme_callback'),
             'checkout_url' => wc_get_checkout_url(),
@@ -1750,6 +2140,25 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
     {
         // Convert amount to cents
         $amount = number_format($order->get_total() * 100, 0, '', '');
+        $payload_resolution = $this->resolve_payload_fields(array(
+            'first_name' => $order->get_billing_first_name(),
+            'last_name' => $order->get_billing_last_name(),
+            'email' => $order->get_billing_email(),
+            'phone' => $order->get_billing_phone(),
+            'address_1' => $order->get_billing_address_1(),
+            'address_2' => $order->get_billing_address_2(),
+            'city' => $order->get_billing_city(),
+            'state' => $order->get_billing_state(),
+            'country' => $order->get_billing_country(),
+            'postcode' => $order->get_billing_postcode(),
+        ), $order->get_currency());
+
+        if (!empty($payload_resolution['missing'])) {
+            throw new Exception(
+                __('No se puede continuar. Faltan campos obligatorios: ', 'payme-gateway') . implode(', ', $payload_resolution['missing'])
+            );
+        }
+        $processed_fields = $payload_resolution['processed'];
 
         return array(
             'action' => 'authorize',
@@ -1767,20 +2176,20 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                 'currency' => $this->currency,
                 'additional_fields' => $this->get_payment_additional_fields(),
                 'billing' => array(
-                    'first_name' => $order->get_billing_first_name(),
-                    'last_name' => $order->get_billing_last_name(),
-                    'email' => $order->get_billing_email(),
+                    'first_name' => $processed_fields['first_name'],
+                    'last_name' => $processed_fields['last_name'],
+                    'email' => $processed_fields['email'],
                     'phone' => array(
-                        'country_code' => $this->get_phone_country_code(),
-                        'subscriber' => preg_replace('/[^0-9]/', '', $order->get_billing_phone())
+                        'country_code' => $processed_fields['phone_country_code'],
+                        'subscriber' => $processed_fields['phone']
                     ),
                     'location' => array(
-                        'line_1' => $order->get_billing_address_1(),
-                        'line_2' => $order->get_billing_address_2(),
-                        'city' => $order->get_billing_city(),
-                        'state' => $order->get_billing_state(),
-                        'country' => $this->country,
-                        'zip_code' => $order->get_billing_postcode()
+                        'line_1' => $processed_fields['address'],
+                        'line_2' => $processed_fields['address_2'] ?: '',
+                        'city' => $processed_fields['city'],
+                        'state' => $processed_fields['state'],
+                        'country' => $processed_fields['country'],
+                        'zip_code' => $processed_fields['postcode'] ?: ''
                     )
                 ),
                 'shipping' => array(
@@ -1801,20 +2210,20 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                     )
                 ),
                 'customer' => array(
-                    'first_name' => $order->get_billing_first_name(),
-                    'last_name' => $order->get_billing_last_name(),
-                    'email' => $order->get_billing_email(),
+                    'first_name' => $processed_fields['first_name'],
+                    'last_name' => $processed_fields['last_name'],
+                    'email' => $processed_fields['email'],
                     'phone' => array(
-                        'country_code' => $this->get_phone_country_code(),
-                        'subscriber' => preg_replace('/[^0-9]/', '', $order->get_billing_phone())
+                        'country_code' => $processed_fields['phone_country_code'],
+                        'subscriber' => $processed_fields['phone']
                     ),
                     'location' => array(
-                        'line_1' => $order->get_billing_address_1(),
-                        'line_2' => $order->get_billing_address_2(),
-                        'city' => $order->get_billing_city(),
-                        'state' => $order->get_billing_state(),
-                        'country' => $this->country,
-                        'zip_code' => $order->get_billing_postcode()
+                        'line_1' => $processed_fields['address'],
+                        'line_2' => $processed_fields['address_2'] ?: '',
+                        'city' => $processed_fields['city'],
+                        'state' => $processed_fields['state'],
+                        'country' => $processed_fields['country'],
+                        'zip_code' => $processed_fields['postcode'] ?: ''
                     )
                 )
             )
@@ -2266,8 +2675,8 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                             nonce: $btn.data('nonce')
                         },
                         success: function (response) {
-                            console.log('Payme refund debug:', response.data && response.data.debug ? response.data.debug : response.data);
                             if (response.success) {
+                                console.info('[Payme] Extorno procesado exitosamente.');
                                 alert('✓ Extorno procesado exitosamente.');
                                 location.reload();
                             } else {
@@ -2276,7 +2685,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                             }
                         },
                         error: function (xhr, status, error) {
-                            console.log('Payme refund connection error:', status, error);
+                            console.error('[Payme] Error de conexión durante el extorno:', status, error);
                             alert('Error de conexión. Inténtalo nuevamente.');
                             $btn.prop('disabled', false).html($btn.data('original-text'));
                         }
@@ -2314,40 +2723,12 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
             return;
         }
 
-        // Build debug info before calling refund
-        global $wpdb;
-        $transactions_table = $wpdb->prefix . 'payme_transactions';
-        $transaction = $wpdb->get_row($wpdb->prepare(
-            "SELECT * FROM $transactions_table WHERE order_id = %d AND status IN ('completed','pending') ORDER BY created_at DESC LIMIT 1",
-            $order_id
-        ));
-        if (!$transaction) {
-            $transaction = $wpdb->get_row($wpdb->prepare(
-                "SELECT * FROM $transactions_table WHERE order_id = %d AND status != 'refunded' ORDER BY created_at DESC LIMIT 1",
-                $order_id
-            ));
-        }
-
-        $base_url = $this->environment === 'production'
-            ? 'https://api.alignet.io'
-            : 'https://api.preprod.alignet.io';
-
-        $debug = array(
-            'method' => 'DELETE',
-            'url' => $transaction ? $base_url . '/charges/' . $this->merchant_code . '/' . $transaction->merchant_operation_number : 'NO TRANSACTION FOUND',
-            'merchant_code' => $this->merchant_code,
-            'operation_number' => $transaction ? $transaction->merchant_operation_number : 'N/A',
-            'transaction_status' => $transaction ? $transaction->status : 'N/A',
-            'environment' => $this->environment,
-        );
-
         // Process full refund
         $result = $this->process_refund($order_id, $order->get_total(), __('Extorno completo desde panel de administración', 'payme-gateway'));
 
         if (is_wp_error($result)) {
             wp_send_json_error(array(
                 'message' => $result->get_error_message(),
-                'debug' => $debug,
             ));
             return;
         }
@@ -2361,40 +2742,16 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
 
         wp_send_json_success(array(
             'message' => __('Extorno procesado exitosamente.', 'payme-gateway'),
-            'debug' => $debug,
         ));
     }
 
     /**
-     * Dual validation enforcer: guarantees core banking fields exist.
+     * Normalize checkout billing values before applying dynamic/static settings.
      */
     private function sanitize_billing_for_payload($billing)
     {
-        $first_name = isset($billing['first_name']) ? $billing['first_name'] : '';
-        $last_name = isset($billing['last_name']) ? $billing['last_name'] : '';
-        $email = isset($billing['email']) ? $billing['email'] : '';
-        $phone = isset($billing['phone']) ? $billing['phone'] : '';
-        $address = isset($billing['address_1']) ? $billing['address_1'] : '';
-        $city = isset($billing['city']) ? $billing['city'] : '';
-
-        if (empty($first_name) && empty($last_name)) {
-            $billing['first_name'] = 'Cliente';
-        }
-        if (empty($email) || !is_email($email)) {
-            $billing['email'] = 'notiene@correo.com';
-        }
-
-        // BLOQUEO ABSOLUTO: El Banco Rechazará sin Teléfono, Dirección o Ciudad
-        if (empty($phone)) {
-            throw new Exception('PAYME: El campo "Teléfono" es requerido explícitamente por la pasarela bancaria.');
-        }
-
-        if (empty($address)) {
-            throw new Exception('PAYME: El campo "Dirección de Facturación" es requerido explícitamente por la pasarela bancaria.');
-        }
-
-        if (empty($city)) {
-            throw new Exception('PAYME: El campo "Ciudad" es requerido explícitamente por la pasarela bancaria.');
+        foreach ($billing as $key => $value) {
+            $billing[$key] = is_scalar($value) ? sanitize_text_field((string) $value) : '';
         }
 
         return $billing;
@@ -2440,6 +2797,26 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
             // Fire the main WooCommerce checkout validation hook only if form_data is present
             // (meaning it came from Classic Checkout, not Blocks which doesn't send it)
             if (!empty($_POST['form_data'])) {
+                // Static billing values replace checkout inputs for validation too.
+                // This keeps WooCommerce and the final Pay-me payload in sync.
+                $payload_configuration = $this->get_effective_payload_field_configuration(get_woocommerce_currency());
+                foreach ($this->get_configurable_payload_fields() as $parameter => $definition) {
+                    if (
+                        $definition['billing_key'] === null ||
+                        $payload_configuration[$parameter]['mode'] !== 'static'
+                    ) {
+                        continue;
+                    }
+
+                    $static_value = $this->sanitize_payload_field_value(
+                        $payload_configuration[$parameter]['value'],
+                        $definition
+                    );
+                    $checkout_key = 'billing_' . $definition['billing_key'];
+                    $form_data[$checkout_key] = $static_value;
+                    $_POST[$checkout_key] = $static_value; // phpcs:ignore WordPress.Security.NonceVerification.Missing
+                }
+
                 // Ensure WooCommerce session is available for wc_add_notice()
                 if (function_exists('WC') && WC()->session) {
                     WC()->session->set('wc_notices', array());
@@ -2483,30 +2860,24 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                 throw new Exception(__('No se pudieron obtener los datos de la orden.', 'payme-gateway'));
             }
 
-            // Validate required billing fields (Original Cleancode Array Validator)
-            $billing = isset($order_data['billing']) ? $order_data['billing'] : array();
-            $required_fields = array(
-                'first_name' => __('Nombre', 'payme-gateway'),
-                'last_name' => __('Apellido', 'payme-gateway'),
-                'email' => __('Correo electrónico', 'payme-gateway'),
-                'phone' => __('Teléfono', 'payme-gateway'),
-                'address_1' => __('Dirección', 'payme-gateway'),
-                'city' => __('Ciudad', 'payme-gateway'),
-            );
-            $missing = array();
-            foreach ($required_fields as $key => $label) {
-                if (empty($billing[$key])) {
-                    $missing[] = $label;
-                }
-            }
-            if (!empty($missing)) {
-                throw new Exception(
-                    __('Completa los siguientes campos para continuar: ', 'payme-gateway') . implode(', ', $missing)
-                );
-            }
-
             // Dual Validation Payload Sanitization
             $order_data['billing'] = $this->sanitize_billing_for_payload($order_data['billing']);
+
+            // Resolve dynamic/static fields before requesting credentials or a Flex nonce.
+            $payload_resolution = $this->resolve_payload_fields($order_data['billing'], get_woocommerce_currency());
+            if (!empty($payload_resolution['missing'])) {
+                $error_data = array(
+                    'message' => __('No se puede continuar. Faltan campos obligatorios: ', 'payme-gateway') . implode(', ', $payload_resolution['missing']),
+                );
+                wp_send_json_error($error_data);
+                return;
+            }
+
+            foreach ($this->get_configurable_payload_fields() as $parameter => $definition) {
+                if ($definition['billing_key'] !== null) {
+                    $order_data['billing'][$definition['billing_key']] = $payload_resolution['processed'][$parameter];
+                }
+            }
 
             // Resolve credentials based on WooCommerce store currency
             $wc_currency = get_woocommerce_currency();
@@ -2553,7 +2924,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
             }
 
             // Prepare payment payload with resolved credentials
-            $payload_data = $this->prepare_payment_payload($order_data, $operation_number, $resolved_credentials);
+            $payload_data = $this->prepare_payment_payload($order_data, $operation_number, $resolved_credentials, $payload_resolution);
 
             // Store operation data in session (including selected method for async detection)
             $order_data['selected_method'] = $selected_method;
@@ -2649,7 +3020,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                     'address_2' => sanitize_text_field($normalized['address_2'] ?? ''),
                     'city' => sanitize_text_field($normalized['city'] ?? ''),
                     'state' => sanitize_text_field($normalized['state'] ?? ''),
-                    'country' => sanitize_text_field($normalized['country'] ?? 'PE'),
+                    'country' => sanitize_text_field($normalized['country'] ?? ''),
                     'postcode' => sanitize_text_field($normalized['postcode'] ?? $normalized['zip'] ?? $normalized['zip_code'] ?? ''),
                 );
             }
@@ -2690,7 +3061,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                 'address_2' => '',
                 'city' => '',
                 'state' => '',
-                'country' => 'PE',
+                'country' => '',
                 'postcode' => ''
             );
         }
@@ -2704,7 +3075,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
             'address_2' => WC()->customer->get_billing_address_2(),
             'city' => WC()->customer->get_billing_city(),
             'state' => WC()->customer->get_billing_state(),
-            'country' => WC()->customer->get_billing_country() ?: 'PE',
+            'country' => WC()->customer->get_billing_country(),
             'postcode' => WC()->customer->get_billing_postcode()
         );
     }
@@ -2712,9 +3083,14 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
     /**
      * Prepare payment payload for Payme Flex
      */
-    private function prepare_payment_payload($order_data, $operation_number, $credentials = null)
+    private function prepare_payment_payload($order_data, $operation_number, $credentials = null, $payload_resolution = null)
     {
         $amount = number_format($order_data['total'] * 100, 0, '', '');
+
+        if (!is_array($payload_resolution)) {
+            $payload_resolution = $this->resolve_payload_fields($order_data['billing'], $order_data['currency']);
+        }
+        $processed_fields = $payload_resolution['processed'];
 
         // Use resolved credentials or fallback to legacy
         $merchant_code = $credentials ? $credentials['merchant_code'] : $this->merchant_code;
@@ -2750,20 +3126,20 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
                 'currency' => $currency_iso,
                 'additional_fields' => $this->get_payment_additional_fields(),
                 'billing' => array(
-                    'first_name' => $order_data['billing']['first_name'],
-                    'last_name' => $order_data['billing']['last_name'],
-                    'email' => $order_data['billing']['email'],
+                    'first_name' => $processed_fields['first_name'],
+                    'last_name' => $processed_fields['last_name'],
+                    'email' => $processed_fields['email'],
                     'phone' => array(
-                        'country_code' => $this->get_phone_country_code(),
-                        'subscriber' => preg_replace('/[^0-9]/', '', $order_data['billing']['phone'])
+                        'country_code' => $processed_fields['phone_country_code'],
+                        'subscriber' => $processed_fields['phone']
                     ),
                     'location' => array(
-                        'line_1' => $order_data['billing']['address_1'],
-                        'line_2' => $order_data['billing']['address_2'] ?: '',
-                        'city' => $order_data['billing']['city'],
-                        'state' => $order_data['billing']['state'],
-                        'country' => $this->get_country_name(),
-                        'zip_code' => $order_data['billing']['postcode'] ?? ''
+                        'line_1' => $processed_fields['address'],
+                        'line_2' => $processed_fields['address_2'] ?: '',
+                        'city' => $processed_fields['city'],
+                        'state' => $processed_fields['state'],
+                        'country' => $processed_fields['country'],
+                        'zip_code' => $processed_fields['postcode'] ?: ''
                     )
                 )
             )
@@ -2791,7 +3167,7 @@ class WC_Payme_Gateway extends WC_Payment_Gateway
 
         $result = array(
             'payload' => $payload,
-            'display_methods' => $display_methods
+            'display_methods' => $display_methods,
         );
         if ($i18n) {
             $result['i18n'] = $i18n;

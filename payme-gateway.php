@@ -3,7 +3,7 @@
  * Plugin Name: Pay-me Gateway
  * Plugin URI: https://payme.com
  * Description: Pasarela de pagos Pay-me para WooCommerce. Acepta pagos con tarjeta, Yape, QR, transferencias bancarias y más.
- * Version: 1.4.0
+ * Version: 1.4.3
  * Requires at least: 5.0
  * Requires PHP: 7.4
  * Author: Pay-me
@@ -23,7 +23,7 @@ if (!defined('ABSPATH')) {
 }
 
 // Define plugin constants
-define('PAYME_GATEWAY_VERSION', '1.4.0');
+define('PAYME_GATEWAY_VERSION', '1.4.3');
 define('PAYME_GATEWAY_PLUGIN_FILE', __FILE__);
 define('PAYME_GATEWAY_PLUGIN_DIR', plugin_dir_path(__FILE__));
 define('PAYME_GATEWAY_PLUGIN_URL', plugin_dir_url(__FILE__));

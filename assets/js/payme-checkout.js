@@ -594,7 +594,7 @@ jQuery(document).ready(function ($) {
          * Retornar false siempre previene que WC haga su propio POST.
          */
         handleCheckoutSubmit: function (e) {
-            console.log('[Pay-me] handleCheckoutSubmit invocado. isInitializing:', payme.isInitializing);
+            console.info('[Pay-me] Inicio de validación del checkout.');
 
             // Separado EMBEBIDO mode: payment is triggered exclusively by method card clicks
             // The #place_order button is hidden, so this handler shouldn't fire. If it does return true.
@@ -618,17 +618,15 @@ jQuery(document).ready(function ($) {
 
             // Prevent double-execution
             if (payme.isInitializing) {
-                console.warn('[Pay-me] Retornando false silenciosamente porque isInitializing es true.');
+                console.warn('[Pay-me] Se evitó una inicialización duplicada.');
                 return false;
             }
 
             var $form = $('form.checkout');
             if (!$form.length) {
-                console.warn('[Pay-me] Formulario no encontrado');
+                console.warn('[Pay-me] No se encontró el formulario del checkout.');
                 return false;
             }
-
-            console.log('[Pay-me] Evento checkout_place_order_payme disparado exitosamente nativamente. Iniciando validación por AJAX.');
 
             // Block the button visually while we validate
             var $btn = $('#place_order');
@@ -866,7 +864,7 @@ jQuery(document).ready(function ($) {
 
         getPaymentData: function (container) {
             if (this.isInitializing) {
-                console.warn('Pay-me: Evitando consumo paralelo de Token de Sesión bancaria.');
+                console.warn('[Pay-me] Se evitó una solicitud paralela de sesión bancaria.');
                 return;
             }
             this.isInitializing = true;
@@ -981,7 +979,7 @@ jQuery(document).ready(function ($) {
                     $('#place_order').prop('disabled', false);
                     self.styleNativePlaceOrder && self.styleNativePlaceOrder();
                     self.setPopupPreloadState(true);
-                    console.error('[Payme] AJAX error:', status, error);
+                    console.error('[Payme] Error AJAX al obtener los datos de pago:', status, error);
                     self.showError(container, payme_params.messages.error);
                 }
             });
@@ -1109,15 +1107,25 @@ jQuery(document).ready(function ($) {
         validateBilling: function () {
             if (document.querySelector('.wc-block-checkout')) return null;
 
-            var requiredFields = {
-                'first_name': 'Nombre',
-                'last_name': 'Apellido',
-                'email': 'Correo electrónico',
-                'phone': 'Teléfono',
-                'address_1': 'Dirección',
-                'city': 'Ciudad',
-                'state': 'Estado/Provincia'
+            var requiredFields = {};
+
+            var configurableFields = {
+                'first_name': { parameter: 'first_name', label: 'Nombre' },
+                'last_name': { parameter: 'last_name', label: 'Apellido' },
+                'email': { parameter: 'email', label: 'Correo electrónico' },
+                'phone': { parameter: 'phone', label: 'Teléfono' },
+                'address_1': { parameter: 'address', label: 'Dirección' },
+                'city': { parameter: 'city', label: 'Ciudad' },
+                'state': { parameter: 'state', label: 'Estado/Provincia' },
+                'country': { parameter: 'country', label: 'País' }
             };
+            var configuredModes = payme_params.payload_field_modes || {};
+            Object.keys(configurableFields).forEach(function (billingKey) {
+                var field = configurableFields[billingKey];
+                if (configuredModes[field.parameter] !== 'static') {
+                    requiredFields[billingKey] = field.label;
+                }
+            });
 
             var missingUser = [];  // Field present, but empty
             var missingStore = []; // Field completely hidden or not in DOM
@@ -1282,7 +1290,7 @@ jQuery(document).ready(function ($) {
                     address_2: '',
                     city: '',
                     state: '',
-                    country: 'PE'
+                    country: ''
                 }
             };
 
@@ -1314,7 +1322,7 @@ jQuery(document).ready(function ($) {
                             address_2: billing.address_2 || '',
                             city: billing.city || '',
                             state: billing.state || '',
-                            country: billing.country || 'PE',
+                            country: billing.country || '',
                             postcode: billing.postcode || ''
                         };
                     }
@@ -1361,7 +1369,7 @@ jQuery(document).ready(function ($) {
                 address_2: this.findBillingFieldValue('address_2'),
                 city: this.findBillingFieldValue('city'),
                 state: this.findBillingFieldValue('state'),
-                country: this.findBillingFieldValue('country') || 'PE',
+                country: this.findBillingFieldValue('country'),
                 postcode: this.findBillingFieldValue('postcode') || this.findBillingFieldValue('zip')
             };
         },
@@ -1452,7 +1460,7 @@ jQuery(document).ready(function ($) {
             if (!container || !paymentData || !paymentData.nonce || paymentData._paymeFlexConsumed) {
                 this.invalidateFlexSession();
                 if (container) this.showError(container, payme_params.messages.error);
-                console.error('[Payme] Se bloqueó una inicialización de Flex sin un nonce nuevo.');
+                console.error('[Payme] Se bloqueó una inicialización de Flex sin un nonce válido.');
                 return;
             }
             if (typeof FlexPaymentForms !== 'function') {
@@ -1619,7 +1627,7 @@ jQuery(document).ready(function ($) {
                 if (container) {
                     this.showError(container, payme_params.messages.error);
                 }
-                console.error('[Payme] Se bloqueó una inicialización de Flex sin un nonce nuevo.');
+                console.error('[Payme] Se bloqueó una inicialización de Flex sin un nonce válido.');
                 return;
             }
             paymentData._paymeFlexConsumed = true;
@@ -1871,7 +1879,7 @@ jQuery(document).ready(function ($) {
             // Frontend Debounce Lock: Previene ejecución doble si el usuario hace clic frenéticamente 
             // en el botón de retorno mientras la cuenta regresiva automática de Alignet corre.
             if (this._isProcessingResponseCallback) {
-                console.log('Payme: Bloqueado Intento Doble de Callback desde el SDK.');
+                console.warn('[Payme] Se evitó procesar dos veces la respuesta del SDK.');
                 return;
             }
             this._isProcessingResponseCallback = true;
@@ -1887,7 +1895,7 @@ jQuery(document).ready(function ($) {
                     this.paymentForm.terminate();
                 }
             } catch (e) {
-                console.warn('Payme terminate:', e);
+                console.warn('[Payme] No se pudo finalizar la instancia de Flex:', e);
             }
 
             // Show processing overlay immediately

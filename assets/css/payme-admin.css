@@ -328,3 +328,174 @@ select[multiple] option:checked {
     width: 100%;
     border-bottom: 2px solid #007cba;
 }
+
+/* Payload data configuration */
+tr:has(.payme-payload-configuration-data) {
+    display: none !important;
+}
+
+.form-table .payme-payload-configuration-row > th,
+.form-table .payme-payload-configuration-row > td {
+    display: table-cell;
+    vertical-align: top;
+    box-sizing: border-box;
+}
+
+.form-table .payme-payload-configuration-row > .payme-payload-description {
+    width: 224px;
+    padding: 24px 24px 24px 20px;
+}
+
+.payme-payload-description > label {
+    display: block;
+    color: #1d2327;
+    font-size: 15px;
+    line-height: 1.35;
+}
+
+.form-table .payme-payload-description > .description {
+    margin: 8px 0 0;
+    color: #64748b;
+    font-style: normal;
+    font-weight: 400;
+    line-height: 1.5;
+}
+
+.form-table .payme-payload-configuration-row > .payme-payload-configuration-cell {
+    width: auto;
+    padding: 24px 0 24px 10px;
+}
+
+.payme-payload-card {
+    width: 100%;
+    max-width: none;
+    box-sizing: border-box;
+    border: 1px solid #e5e7eb;
+    border-top: 2px solid #007cba;
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
+}
+
+.payme-payload-mode {
+    display: inline-flex;
+    padding: 3px;
+    border: 1px solid #d1d5db;
+    border-radius: 7px;
+    background: #f8fafc;
+}
+
+.payme-payload-mode button {
+    border: 0;
+    border-radius: 5px;
+    padding: 7px 12px;
+    color: #64748b;
+    background: transparent;
+    cursor: pointer;
+    font-size: 13px;
+    line-height: 1.2;
+}
+
+.payme-payload-mode button.active {
+    color: #007cba;
+    background: #fff;
+    box-shadow: 0 1px 3px rgba(15, 23, 42, 0.15);
+    font-weight: 600;
+}
+
+.payme-payload-static-wrap > span {
+    display: block;
+    margin-bottom: 5px;
+    color: #64748b;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.payme-payload-table-wrap {
+    overflow-x: auto;
+}
+
+.payme-payload-table {
+    width: 100%;
+    min-width: 860px;
+    table-layout: auto;
+    border-collapse: collapse;
+}
+
+.payme-payload-table th,
+.payme-payload-table td {
+    padding: 13px 16px;
+    border-bottom: 1px solid #eef2f7;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.payme-payload-table th {
+    color: #64748b;
+    background: #fff;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.payme-payload-field-label {
+    color: #1e293b;
+    font-weight: 600;
+}
+
+.payme-payload-table code {
+    white-space: nowrap;
+    color: #475569;
+    background: #f1f5f9;
+    border-radius: 4px;
+    padding: 3px 6px;
+}
+
+.payme-payload-static-wrap {
+    display: none;
+}
+
+.payme-payload-table tr.is-static .payme-payload-static-wrap {
+    display: block;
+}
+
+.payme-payload-table tr.is-static .payme-payload-dynamic-value {
+    display: none;
+}
+
+.payme-payload-static-value {
+    width: 100%;
+    min-width: 190px;
+    box-sizing: border-box;
+}
+
+.payme-payload-field-error {
+    display: block;
+    margin-top: 5px;
+    color: #b91c1c;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+@media (max-width: 600px) {
+    .form-table .payme-payload-configuration-row > .payme-payload-description,
+    .form-table .payme-payload-configuration-row > .payme-payload-configuration-cell {
+        display: block;
+        width: 100%;
+        padding-right: 0;
+        padding-left: 0;
+    }
+
+    .form-table .payme-payload-configuration-row > .payme-payload-description {
+        padding-bottom: 12px;
+    }
+
+    .form-table .payme-payload-configuration-row > .payme-payload-configuration-cell {
+        padding-top: 0;
+    }
+
+    .payme-payload-table {
+        min-width: 760px;
+    }
+}
